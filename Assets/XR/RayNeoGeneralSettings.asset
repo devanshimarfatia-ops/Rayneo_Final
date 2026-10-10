@@ -13,54 +13,94 @@ MonoBehaviour:
   m_Name: RayNeoGeneralSettings
   m_EditorClassIdentifier: 
   touchConfigs:
-  - PlatformType: 32
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: 33
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: 34
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: 35
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: 36
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: 48
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: 4096
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
-  - PlatformType: -1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 0
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   baseConfig:
     LogLevel: 4
     SleepTimeOut: -1
