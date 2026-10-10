@@ -20,7 +20,7 @@ namespace RayneoIdle.Zones
 
         [Header("Trigger tuning (meters / seconds)")]
         [SerializeField] private float enterRadius = 1.0f;
-        [SerializeField] private float exitRadius = 1.5f;
+        [SerializeField] private float exitRadius = 2.0f;  // leave the zone beyond 2 m
         [SerializeField] private float dwellSeconds = 2.0f;
         [Tooltip("Evaluation interval. Lower = more responsive, higher = less CPU.")]
         [SerializeField] private float evaluateInterval = 0.2f;

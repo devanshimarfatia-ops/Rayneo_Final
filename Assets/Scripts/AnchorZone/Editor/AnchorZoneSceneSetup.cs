@@ -43,6 +43,9 @@ namespace RayneoIdle.Zones.EditorTools
         private const int ModeFontSize = 32;
         private const int ToastFontSize = 22;
         private const int StatusFontSize = 18;
+        private const int MenuFontSize = 24;
+        // Gap between the center gaze dot and the bottom of the anchor menu.
+        private const float MenuGapPx = 30f;
 
         private static readonly Color Black = new Color(0f, 0f, 0f, 0f); // #000000 = transparent on the glasses
         private static readonly Color Cyan = new Color32(0x4D, 0xE2, 0xFF, 0xFF);
@@ -116,8 +119,14 @@ namespace RayneoIdle.Zones.EditorTools
                 anchor: new Vector2(0f, 0f), pivot: new Vector2(0f, 0f),
                 pos: new Vector2(MarginPx, MarginPx), size: new Vector2(CanvasWidthPx - 2 * MarginPx, 52f));
 
+            var menuText = CreateText(canvas, "MenuText", MenuFontSize, Green, TextAnchor.LowerCenter,
+                // center zone, bottom edge MenuGapPx above the gaze dot so the dot stays visible
+                anchor: new Vector2(0.5f, 0.5f), pivot: new Vector2(0.5f, 0f),
+                pos: new Vector2(0f, MenuGapPx), size: new Vector2(CanvasWidthPx - 2 * MarginPx, 70f));
+
             Wire(hud, ("detector", detector), ("modes", modes), ("slam", slam), ("input", input),
-                ("store", store), ("modeText", modeText), ("statusText", statusText), ("toastText", toastText));
+                ("store", store), ("modeText", modeText), ("statusText", statusText), ("toastText", toastText),
+                ("menuText", menuText));
 
             // ---- Save + Build Settings ----
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));

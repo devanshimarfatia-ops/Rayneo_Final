@@ -6,15 +6,20 @@ using RayNeo; // SimpleTouchForLite (ARDK SDK/Runtime/Scripts/Comps/SimpleTouchF
 namespace RayneoIdle.Zones
 {
     /// <summary>
-    /// Test controls for placing anchors.
+    /// Anchor placement flow (two states):
     ///
-    ///   Swipe forward/back -> cycle selected ZoneType   (Editor: Left / Right arrow)
-    ///   Single tap         -> place anchor at your current standing spot (Editor: Space)
-    ///   Triple tap         -> remove nearest anchor     (Editor: Backspace)
-    ///   Double tap         -> RESERVED for system back/exit, not used here.
+    ///   Idle:
+    ///     Single tap   -> open the "Set anchor" menu          (Editor: Space)
+    ///     Triple tap   -> remove nearest anchor               (Editor: Backspace)
+    ///   Menu open:
+    ///     Swipe fwd/back -> choose Work / Kitchen / Bedroom   (Editor: Left / Right arrow)
+    ///     Single tap     -> confirm, place anchor here        (Editor: Space)
+    ///     No input for menuTimeoutSeconds -> menu closes      (Editor: Escape closes at once)
+    ///
+    ///   Double tap -> RESERVED for system back/exit, never used here.
     ///
     /// The anchor is placed at the HEAD position projected to the floor plane,
-    /// so the workflow is: sit/stand where you usually work, select Work, tap.
+    /// so the workflow is: sit/stand where you usually work, tap, choose Work, tap.
     /// </summary>
     public class AnchorPlacementInput : MonoBehaviour
     {
@@ -22,8 +27,12 @@ namespace RayneoIdle.Zones
         [SerializeField] private ZoneDetector detector;
         [SerializeField] private SlamSessionController slam;
 
+        [Header("Menu")]
+        [Tooltip("Menu closes by itself after this many seconds without a tap or swipe.")]
+        [SerializeField] private float menuTimeoutSeconds = 10f;
+
         [Header("Touchpad")]
-        [Tooltip("Flip if swiping forward on the X3 Pro temple selects the previous type instead of the next.")]
+        [Tooltip("Flip if swiping forward on the X3 Pro temple moves the menu selection the wrong way.")]
         [SerializeField] private bool invertSwipe = false;
         [Tooltip("Swipe events fire repeatedly during one long swipe (every ~200 touch px). " +
                  "Swipes closer together than this are ignored, so one swipe = one step.")]
@@ -31,12 +40,17 @@ namespace RayneoIdle.Zones
         [Tooltip("Also listen to the touchpad in the Editor (mouse clicks in the Game view count as taps).")]
         [SerializeField] private bool useTouchpadInEditor = false;
 
-        public ZoneType SelectedType { get; private set; } = ZoneType.Work;
-        public event Action<string> OnToast; // short status messages for the HUD
+        /// <summary>Display / swipe order of the menu. Add new ZoneTypes here too.</summary>
+        public static readonly ZoneType[] MenuOrder = { ZoneType.Work, ZoneType.Kitchen, ZoneType.Bedroom };
 
-        private static readonly ZoneType[] AllTypes = (ZoneType[])Enum.GetValues(typeof(ZoneType));
+        public bool IsMenuOpen { get; private set; }
+        public ZoneType SelectedType { get; private set; } = ZoneType.Work;
+
+        public event Action<string> OnToast;   // short status messages for the HUD
+        public event Action OnMenuChanged;     // menu opened / closed / selection moved
 
         private float lastSwipeTime = -999f;
+        private float menuCloseTime;
         private bool touchpadBound;
 
         private bool UseTouchpad => !Application.isEditor || useTouchpadInEditor;
@@ -47,8 +61,8 @@ namespace RayneoIdle.Zones
 
             // SimpleTouchForLite.Instance auto-creates the singleton if the scene has none.
             var touch = SimpleTouchForLite.Instance;
-            touch.OnSimpleTap.AddListener(PlaceAnchor);
-            touch.OnTripleTap.AddListener(RemoveNearest);
+            touch.OnSimpleTap.AddListener(HandleTap);
+            touch.OnTripleTap.AddListener(HandleTripleTap);
             // NOTE: use the per-step OnSwipeLeft/Right events. The OnSwipe*End events never
             // fire in ARDK 1.1.2 (their internal LEFT_SWIPE/RIGHT_SWIPE state is never set).
             // The ARDK also maps LEFT_SWIPE_STEP -> OnSwipeRight, so the physical direction
@@ -65,8 +79,8 @@ namespace RayneoIdle.Zones
             // re-create it during scene unload / app quit.
             if (!touchpadBound || !SimpleTouchForLite.SingletonExist) return;
             var touch = SimpleTouchForLite.Instance;
-            touch.OnSimpleTap.RemoveListener(PlaceAnchor);
-            touch.OnTripleTap.RemoveListener(RemoveNearest);
+            touch.OnSimpleTap.RemoveListener(HandleTap);
+            touch.OnTripleTap.RemoveListener(HandleTripleTap);
             touch.OnSwipeRight.RemoveListener(HandleSwipeRight);
             touch.OnSwipeLeft.RemoveListener(HandleSwipeLeft);
             touchpadBound = false;
@@ -74,16 +88,34 @@ namespace RayneoIdle.Zones
 
         private void Update()
         {
+            // Trigger: menu open and no input for menuTimeoutSeconds -> close without placing.
+            if (IsMenuOpen && Time.unscaledTime >= menuCloseTime) CloseMenu("Cancelled");
+
 #if UNITY_EDITOR
-            // The project uses the new Input System only (Active Input Handling = Input System),
-            // so the legacy UnityEngine.Input API would throw here.
+            // Editor keyboard stand-ins for the touchpad (new Input System API).
             var kb = Keyboard.current;
             if (kb == null) return;
-            if (kb.spaceKey.wasPressedThisFrame) PlaceAnchor();
-            if (kb.backspaceKey.wasPressedThisFrame) RemoveNearest();
-            if (kb.rightArrowKey.wasPressedThisFrame) NextType();
-            if (kb.leftArrowKey.wasPressedThisFrame) PrevType();
+            if (kb.spaceKey.wasPressedThisFrame) HandleTap();
+            if (kb.backspaceKey.wasPressedThisFrame) HandleTripleTap();
+            if (kb.rightArrowKey.wasPressedThisFrame) MoveSelection(+1);
+            if (kb.leftArrowKey.wasPressedThisFrame) MoveSelection(-1);
+            if (kb.escapeKey.wasPressedThisFrame && IsMenuOpen) CloseMenu("Cancelled");
 #endif
+        }
+
+        // Trigger: SimpleTouchForLite.OnSimpleTap (fires ~0.4 s after the tap, once the SDK
+        // is sure it was not a double/triple tap).
+        private void HandleTap()
+        {
+            if (!IsMenuOpen) OpenMenu();
+            else ConfirmPlacement();
+        }
+
+        // Trigger: SimpleTouchForLite.OnTripleTap. Only acts when the menu is closed.
+        private void HandleTripleTap()
+        {
+            if (IsMenuOpen) return;
+            RemoveNearest();
         }
 
         // Trigger: SimpleTouchForLite.OnSwipeRight (fires each time a swipe travels ~200 touch px).
@@ -97,35 +129,58 @@ namespace RayneoIdle.Zones
             // Threshold: ignore repeats within swipeCooldownSeconds of the last accepted swipe.
             if (Time.unscaledTime - lastSwipeTime < swipeCooldownSeconds) return;
             lastSwipeTime = Time.unscaledTime;
-            Cycle(dir);
+            MoveSelection(dir);
         }
 
-        public void PlaceAnchor()
+        private void OpenMenu()
+        {
+            IsMenuOpen = true;
+            menuCloseTime = Time.unscaledTime + menuTimeoutSeconds;
+            Debug.Log("[AnchorInput] Menu opened");
+            OnMenuChanged?.Invoke();
+        }
+
+        private void CloseMenu(string toast)
+        {
+            IsMenuOpen = false;
+            Debug.Log($"[AnchorInput] Menu closed ({toast})");
+            if (!string.IsNullOrEmpty(toast)) OnToast?.Invoke(toast);
+            OnMenuChanged?.Invoke();
+        }
+
+        /// <summary>Swipe only changes the selection while the menu is open.</summary>
+        private void MoveSelection(int dir)
+        {
+            if (!IsMenuOpen) return;
+            int i = Array.IndexOf(MenuOrder, SelectedType);
+            if (i < 0) i = 0;
+            i = (i + dir + MenuOrder.Length) % MenuOrder.Length;
+            SelectedType = MenuOrder[i];
+            menuCloseTime = Time.unscaledTime + menuTimeoutSeconds; // any input resets the timeout
+            OnMenuChanged?.Invoke();
+        }
+
+        private void ConfirmPlacement()
         {
             // Guard: never save an anchor while SLAM is not tracking (position would be garbage).
-            if (!slam.IsTracking) { OnToast?.Invoke("Tracking lost - look around"); return; }
+            // The menu stays open so the user can look around and tap again.
+            if (!slam.IsTracking)
+            {
+                menuCloseTime = Time.unscaledTime + menuTimeoutSeconds;
+                OnToast?.Invoke("No tracking - look around");
+                return;
+            }
 
             Vector3 p = detector.HeadPosition;
             p.y = 0f;
             store.Add(SelectedType, p);
-            OnToast?.Invoke($"{SelectedType} anchor placed");
+            CloseMenu($"{SelectedType} anchor set");
         }
 
         public void RemoveNearest()
         {
             if (store.RemoveNearest(detector.HeadPosition)) OnToast?.Invoke("Nearest anchor removed");
             else OnToast?.Invoke("No anchors");
-        }
-
-        public void NextType() => Cycle(+1);
-        public void PrevType() => Cycle(-1);
-
-        private void Cycle(int dir)
-        {
-            int i = Array.IndexOf(AllTypes, SelectedType);
-            i = (i + dir + AllTypes.Length) % AllTypes.Length;
-            SelectedType = AllTypes[i];
-            OnToast?.Invoke($"Selected: {SelectedType}");
         }
     }
 }

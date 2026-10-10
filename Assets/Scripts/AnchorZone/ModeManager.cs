@@ -7,7 +7,7 @@ namespace RayneoIdle.Zones
     {
         Default = 0, // outside any zone
         Work = 1,
-        Rest = 2,
+        Bedroom = 2,
         Kitchen = 3
     }
 
@@ -49,7 +49,7 @@ namespace RayneoIdle.Zones
             switch (type)
             {
                 case ZoneType.Work: return AppMode.Work;
-                case ZoneType.Rest: return AppMode.Rest;
+                case ZoneType.Bedroom: return AppMode.Bedroom;
                 case ZoneType.Kitchen: return AppMode.Kitchen;
                 default: return AppMode.Default;
             }

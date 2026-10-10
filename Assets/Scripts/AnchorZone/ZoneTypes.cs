@@ -5,13 +5,15 @@ namespace RayneoIdle.Zones
 {
     /// <summary>
     /// Semantic label for a real-world area.
-    /// To add a new zone: add a value here, then map it in ModeManager.MapZoneToMode().
+    /// To add a new zone: add a value here, then map it in ModeManager.MapZoneToMode()
+    /// and add it to AnchorPlacementInput.MenuOrder.
+    /// The int values are saved in zone_anchors.json, so never renumber existing entries.
     /// </summary>
     public enum ZoneType
     {
-        Work = 0,   // e.g. office desk
-        Rest = 1,   // e.g. sofa / bed
-        Kitchen = 2 // placeholder for future modes
+        Work = 0,    // e.g. office desk
+        Bedroom = 1, // e.g. bed / sofa (was "Rest")
+        Kitchen = 2
     }
 
     /// <summary>

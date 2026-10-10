@@ -15,19 +15,42 @@ namespace RayneoIdle.Zones
         [Tooltip("How often SLAM status is polled, in seconds.")]
         [SerializeField] private float pollInterval = 0.5f;
 
+#pragma warning disable 0414 // device-only fields, unused in the Editor
+        [Tooltip("Debug fallback: treat SLAM as tracking regardless of GetSlamStatus(). " +
+                 "Use only if the status API never reports SUCCESS but the head position clearly moves.")]
+        [SerializeField] private bool ignoreSlamStatus = false;
+
+        [Tooltip("Head transform, only used for the periodic pose log. Leave empty to use Camera.main.")]
+        [SerializeField] private Transform head;
+        [Tooltip("Seconds between [SlamSession] pose log lines on device. 0 = off.")]
+        [SerializeField] private float poseLogInterval = 2f;
+#pragma warning restore 0414
+
         public bool IsTracking { get; private set; }
+
+        /// <summary>Last raw value returned by Algorithm.GetSlamStatus() (0 init, 1 success, 2 fail), -1 before the first poll.</summary>
+        public int RawStatus { get; private set; } = -1;
 
         /// <summary>Fires with true when tracking succeeds, false when it is lost.</summary>
         public event Action<bool> OnTrackingChanged;
 
         private float nextPollTime;
+        private float nextPoseLogTime;
+        private bool started;
+
+        private void Start()
+        {
+            // Enabled in Start (not OnEnable), same as the ARDK SlamDemoCtrl sample,
+            // so the XR session is already running when SLAM is requested.
+            if (head == null && Camera.main != null) head = Camera.main.transform;
+            started = true;
+            EnableSlam();
+        }
 
         private void OnEnable()
         {
-            // Trigger: call before entering SLAM 6DoF (per RayNeo docs).
-            // The ARDK already turns this into a no-op inside the Editor.
-            Algorithm.EnableSlamHeadTracker();
-            Debug.Log("[SlamSession] SLAM enabled");
+            // Re-enable after a manual disable/enable; the first enable happens in Start.
+            if (started) EnableSlam();
         }
 
         private void OnDisable()
@@ -36,6 +59,14 @@ namespace RayneoIdle.Zones
             Algorithm.DisableSlamHeadTracker();
             SetTracking(false);
             Debug.Log("[SlamSession] SLAM disabled");
+        }
+
+        private void EnableSlam()
+        {
+            // Trigger: call before entering SLAM 6DoF (per RayNeo docs).
+            // The ARDK already turns this into a no-op inside the Editor.
+            Algorithm.EnableSlamHeadTracker();
+            Debug.Log("[SlamSession] SLAM enabled");
         }
 
         private void Update()
@@ -47,10 +78,24 @@ namespace RayneoIdle.Zones
             // The ARDK returns FFVINS_TRACKING_FAIL in the Editor, so simulate success here.
             SetTracking(true);
 #else
-            var state = Algorithm.GetSlamStatus();
+            int raw = (int)Algorithm.GetSlamStatus();
+            if (raw != RawStatus)
+            {
+                Debug.Log($"[SlamSession] Raw status {RawStatus} -> {raw} ({(Algorithm.SlamState)raw})");
+                RawStatus = raw;
+            }
+
+            if (ignoreSlamStatus) SetTracking(true);
             // INITIALIZING keeps the previous value; only SUCCESS/FAIL change it
-            if (state == Algorithm.SlamState.FFVINS_TRACKING_SUCCESS) SetTracking(true);
-            else if (state == Algorithm.SlamState.FFVINS_TRACKING_FAIL) SetTracking(false);
+            else if (raw == (int)Algorithm.SlamState.FFVINS_TRACKING_SUCCESS) SetTracking(true);
+            else if (raw == (int)Algorithm.SlamState.FFVINS_TRACKING_FAIL) SetTracking(false);
+
+            // Periodic pose log: shows whether 6DoF position actually changes when walking.
+            if (poseLogInterval > 0f && head != null && Time.unscaledTime >= nextPoseLogTime)
+            {
+                nextPoseLogTime = Time.unscaledTime + poseLogInterval;
+                Debug.Log($"[SlamSession] status={raw} headPos={head.position.ToString("F2")}");
+            }
 #endif
         }
 
