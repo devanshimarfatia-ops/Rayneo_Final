@@ -188,7 +188,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.rayneo.openxr": {
-      "version": "file:C:/Users/devan/Downloads/RayNeo OpenXR Unity ARDK (1)/RayNeo OpenXR Unity ARDK",
+      "version": "file:D:/Study/Capstone-Rayneo/RayNeo OpenXR Unity ARDK/RayNeo OpenXR Unity ARDK",
       "depth": 0,
       "source": "local",
       "dependencies": {
