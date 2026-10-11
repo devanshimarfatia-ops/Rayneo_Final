@@ -38,6 +38,18 @@ namespace RayneoIdle.Zones
 
         public Vector3 HeadPosition => head != null ? head.position : Vector3.zero;
 
+        /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
+        public void Configure(ZoneAnchorStore store, SlamSessionController slam, Transform head,
+            float enterRadius, float exitRadius, float dwellSeconds)
+        {
+            this.store = store;
+            this.slam = slam;
+            this.head = head;
+            this.enterRadius = enterRadius;
+            this.exitRadius = exitRadius;
+            this.dwellSeconds = dwellSeconds;
+        }
+
         private void Start()
         {
             if (head == null && Camera.main != null) head = Camera.main.transform;

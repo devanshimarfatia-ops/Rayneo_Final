@@ -6,11 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/AnchorZoneTest.unity
-    guid: 1656afcf3dd261e4fa07f98eb5ab0d84
-  - enabled: 1
-    path: Assets/Scenes/Test.unity
-    guid: 61d2eb631cf47f344bf99a08b65f4d47
+    path: Assets/Scenes/Test-Anchor.unity
+    guid: 67c8bc25f48ff604298c6c209ef4cf8e
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: b932d0eb1fdd373438fe61c7e1a2e47a, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: b31b95b3b67a25d43bf955978f46d761, type: 2}

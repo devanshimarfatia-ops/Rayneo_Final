@@ -33,6 +33,22 @@ namespace RayneoIdle.Zones
         private float toastHideTime;
         private float nextRefresh;
 
+        /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
+        public void Configure(ZoneDetector detector, ModeManager modes, SlamSessionController slam,
+            AnchorPlacementInput input, ZoneAnchorStore store,
+            Text modeText, Text statusText, Text toastText, Text menuText)
+        {
+            this.detector = detector;
+            this.modes = modes;
+            this.slam = slam;
+            this.input = input;
+            this.store = store;
+            this.modeText = modeText;
+            this.statusText = statusText;
+            this.toastText = toastText;
+            this.menuText = menuText;
+        }
+
         private void OnEnable()
         {
             input.OnToast += ShowToast;

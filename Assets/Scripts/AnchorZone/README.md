@@ -1,14 +1,14 @@
 # Anchor Zone Detection - Prototype
 
 ## Scene setup
-Run **Rayneo > Setup Anchor Zone Scene**. It creates `Assets/Scenes/AnchorZoneTest.unity` with:
-- `XR Plugin` prefab from the ARDK (replaces Main Camera), clear = Solid Color #000000, no skybox
-- `ZoneSystem`: SlamSessionController, ZoneAnchorStore, ZoneDetector, ModeManager,
-  AnchorPlacementInput, ZoneDebugHUD, all references wired
-- `HUD Canvas`: World Space, child of the head camera at 2 m (0DoF HUD), 640x480 reference,
-  XRGraphicRaycaster, Bold legacy Text: ToastText (top), ModeText (top-left), MenuText (center), StatusText (bottom)
-- EditorHeadMover on the camera (Editor only)
-- the scene is put first in Build Settings
+1. The scene needs the RayNeo `XR Plugin` prefab (camera rig).
+2. Add an empty GameObject and put **AnchorZoneBootstrap** on it. That is all.
+   On Awake it creates `ZoneSystem` (SlamSessionController, ZoneAnchorStore, ZoneDetector,
+   ModeManager, AnchorPlacementInput, ZoneDebugHUD) and the head-locked HUD canvas
+   (ZoneHudBuilder: 640x480, XRGraphicRaycaster, Toast / Mode / Menu / Status texts), all wired.
+   Tune radii, dwell time, swipe direction and the SLAM debug fallback on the bootstrap.
+3. Optional: **Rayneo > Setup Anchor Zone Scene** creates a fresh test scene with just
+   the XR Plugin prefab + AnchorZoneBootstrap.
 
 Camera Attitude Type must be **SLAM** (XR Plug-in Management > OpenXR > RayNeo Support).
 
@@ -17,9 +17,9 @@ Camera Attitude Type must be **SLAM** (XR Plug-in Management > OpenXR > RayNeo S
 2. Swipe forward/back -> choose WORK / KITCHEN / BEDROOM.
 3. Tap -> anchor is placed where you stand. The menu closes by itself after 10 s without input.
 Triple tap (menu closed) = remove nearest anchor. Double tap is left to the system (back/exit).
-If the swipe direction feels reversed, tick `Invert Swipe` on AnchorPlacementInput.
+If the swipe direction feels reversed, tick `Invert Swipe` on AnchorZoneBootstrap.
 
-Zone triggers: ENTER = within 1.0 m for 2 s, EXIT = farther than 2.0 m (ZoneDetector).
+Zone triggers: ENTER = within 1.0 m for 2 s, EXIT = farther than 2.0 m (set on AnchorZoneBootstrap).
 
 ## Editor controls
 WASD walk | Q/E turn | Space open menu / confirm | Left/Right choose | Esc cancel | Backspace remove nearest

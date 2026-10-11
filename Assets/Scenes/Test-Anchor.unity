@@ -307,6 +307,57 @@ Camera:
   m_CorrespondingSourceObject: {fileID: 4087872765269157507, guid: f82accd910f54e44cb54d6e87ad284d6, type: 3}
   m_PrefabInstance: {fileID: 163617655}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &277315026
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 277315028}
+  - component: {fileID: 277315027}
+  m_Layer: 0
+  m_Name: AnchorZones
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &277315027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 277315026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2385f37ff3cacf84d94adf713d0744d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  head: {fileID: 0}
+  enterRadius: 1
+  dwellSeconds: 2
+  exitRadius: 2
+  invertSwipe: 0
+  ignoreSlamStatus: 1
+  forceBlackBackground: 1
+--- !u!4 &277315028
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 277315026}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.032143906, y: -1.2832323, z: 0.9541476}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &391530669
 GameObject:
   m_ObjectHideFlags: 0
@@ -989,7 +1040,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1000538990
 Transform:
   m_ObjectHideFlags: 0
@@ -1017,7 +1068,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 830cf943eac54e641977da66c1b14c3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  image: {fileID: 0}
+  image: {fileID: 430749858}
 --- !u!1 &1850362820
 GameObject:
   m_ObjectHideFlags: 0
@@ -1155,3 +1206,4 @@ SceneRoots:
   - {fileID: 401085525}
   - {fileID: 391530674}
   - {fileID: 1850362825}
+  - {fileID: 277315028}

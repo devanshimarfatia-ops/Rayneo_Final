@@ -25,6 +25,9 @@ namespace RayneoIdle.Zones
         /// <summary>(previousMode, newMode)</summary>
         public event Action<AppMode, AppMode> OnModeChanged;
 
+        /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
+        public void Configure(ZoneDetector detector) => this.detector = detector;
+
         private void OnEnable()
         {
             detector.OnZoneEntered += HandleEntered;

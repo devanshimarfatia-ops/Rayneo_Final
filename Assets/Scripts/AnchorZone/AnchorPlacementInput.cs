@@ -55,12 +55,29 @@ namespace RayneoIdle.Zones
 
         private bool UseTouchpad => !Application.isEditor || useTouchpadInEditor;
 
+        /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
+        public void Configure(ZoneAnchorStore store, ZoneDetector detector, SlamSessionController slam, bool invertSwipe)
+        {
+            this.store = store;
+            this.detector = detector;
+            this.slam = slam;
+            this.invertSwipe = invertSwipe;
+        }
+
         private void OnEnable()
         {
             if (!UseTouchpad) return;
 
             // SimpleTouchForLite.Instance auto-creates the singleton if the scene has none.
-            var touch = SimpleTouchForLite.Instance;
+            // Its OnEnable throws KeyNotFoundException when Assets/XR/RayNeoGeneralSettings.asset
+            // has no touch config for the current device type (then the touchpad is dead).
+            SimpleTouchForLite touch;
+            try { touch = SimpleTouchForLite.Instance; }
+            catch (Exception e)
+            {
+                Debug.LogError($"[AnchorInput] Touchpad init failed, check RayNeoGeneralSettings touchConfigs: {e.Message}");
+                return;
+            }
             touch.OnSimpleTap.AddListener(HandleTap);
             touch.OnTripleTap.AddListener(HandleTripleTap);
             // NOTE: use the per-step OnSwipeLeft/Right events. The OnSwipe*End events never

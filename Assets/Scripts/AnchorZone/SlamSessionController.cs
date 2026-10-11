@@ -38,6 +38,13 @@ namespace RayneoIdle.Zones
         private float nextPoseLogTime;
         private bool started;
 
+        /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
+        public void Configure(Transform head, bool ignoreSlamStatus)
+        {
+            this.head = head;
+            this.ignoreSlamStatus = ignoreSlamStatus;
+        }
+
         private void Start()
         {
             // Enabled in Start (not OnEnable), same as the ARDK SlamDemoCtrl sample,
