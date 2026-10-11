@@ -3,12 +3,19 @@
 ## Scene setup
 1. The scene needs the RayNeo `XR Plugin` prefab (camera rig).
 2. Add an empty GameObject and put **AnchorZoneBootstrap** on it. That is all.
-   On Awake it creates `ZoneSystem` (SlamSessionController, ZoneAnchorStore, ZoneDetector,
-   ModeManager, AnchorPlacementInput, ZoneDebugHUD) and the head-locked HUD canvas
-   (ZoneHudBuilder: 640x480, XRGraphicRaycaster, Toast / Mode / Menu / Status texts), all wired.
-   Tune radii, dwell time, swipe direction and the SLAM debug fallback on the bootstrap.
-3. Optional: **Rayneo > Setup Anchor Zone Scene** creates a fresh test scene with just
-   the XR Plugin prefab + AnchorZoneBootstrap.
+   All tuning (radii, dwell time, swipe direction, SLAM debug fallback) is on this component.
+
+## Files
+| File | Role |
+|---|---|
+| AnchorZoneBootstrap | Entry point. Creates and wires everything below at runtime. |
+| SlamSessionController | Starts/stops SLAM, reports tracking. |
+| ZoneAnchorStore | Anchor list, saved as JSON in persistentDataPath. |
+| ZoneDetector | ENTER / EXIT logic (radius + dwell, hysteresis). |
+| ModeManager | Zone events -> AppMode. Gameplay listens to `OnModeChanged` only. |
+| AnchorPlacementInput | Touchpad menu flow + Editor keyboard / WASD head simulation. |
+| ZoneDebugHUD | Builds the head-locked HUD canvas and updates its texts. |
+| ZoneTypes | ZoneType, AppMode, ZoneAnchorData. |
 
 Camera Attitude Type must be **SLAM** (XR Plug-in Management > OpenXR > RayNeo Support).
 

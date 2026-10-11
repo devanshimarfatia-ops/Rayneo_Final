@@ -8,6 +8,7 @@ namespace RayneoIdle.Zones
     /// "XR Plugin" prefab. On Awake it creates the whole anchor-zone system at runtime:
     ///   ZoneSystem (SlamSessionController, ZoneAnchorStore, ZoneDetector, ModeManager,
     ///   AnchorPlacementInput, ZoneDebugHUD) + head-locked HUD canvas, all wired.
+    /// Editor testing (WASD walk, Space / arrows for the menu) is handled by AnchorPlacementInput.
     /// All tuning lives on this component, so nothing else has to be set up in the scene.
     /// </summary>
     [DisallowMultipleComponent]
@@ -70,18 +71,11 @@ namespace RayneoIdle.Zones
             var input = system.AddComponent<AnchorPlacementInput>();
             var hud = system.AddComponent<ZoneDebugHUD>();
 
-            var texts = ZoneHudBuilder.Build(head);
-
             slam.Configure(head, ignoreSlamStatus);
             detector.Configure(store, slam, head, enterRadius, exitRadius, dwellSeconds);
             modes.Configure(detector);
             input.Configure(store, detector, slam, invertSwipe);
-            hud.Configure(detector, modes, slam, input, store, texts.mode, texts.status, texts.toast, texts.menu);
-
-#if UNITY_EDITOR
-            // Editor-only WASD / Q-E walking; the component is a no-op in device builds anyway.
-            if (head.GetComponent<EditorHeadMover>() == null) head.gameObject.AddComponent<EditorHeadMover>();
-#endif
+            hud.Configure(detector, modes, slam, input, store, head); // also builds the HUD canvas
 
             system.SetActive(true);
             Debug.Log($"[AnchorZoneBootstrap] Zone system created (enter {enterRadius} m / {dwellSeconds} s, exit {exitRadius} m)");

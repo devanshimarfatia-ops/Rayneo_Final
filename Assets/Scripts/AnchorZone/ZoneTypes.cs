@@ -17,6 +17,18 @@ namespace RayneoIdle.Zones
     }
 
     /// <summary>
+    /// App mode that gameplay reacts to (via ModeManager.OnModeChanged).
+    /// ZoneType -> AppMode mapping lives in ModeManager.MapZoneToMode().
+    /// </summary>
+    public enum AppMode
+    {
+        Default = 0, // outside any zone
+        Work = 1,
+        Bedroom = 2,
+        Kitchen = 3
+    }
+
+    /// <summary>
     /// Serializable anchor record. Position is in SLAM world space,
     /// which is RELATIVE TO THE SESSION ORIGIN (see README: persistence caveat).
     /// </summary>

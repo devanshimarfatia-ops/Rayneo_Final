@@ -1,3 +1,4 @@
+using FfalconXR.InputModule; // XRGraphicRaycaster (ARDK UnityXRSDKCore.dll)
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,46 +8,61 @@ namespace RayneoIdle.Zones
     /// Minimal debug HUD following RayNeo display specs:
     /// black (transparent) background, bold text >= 16px, cyan/green palette,
     /// toast in the top area that hides after ~2.5 s, anchor menu just above the center dot.
-    /// Updates text at ~5 Hz to save power.
+    /// Builds its own head-locked (0DoF) canvas in Configure(). Updates text at ~5 Hz to save power.
     /// </summary>
     public class ZoneDebugHUD : MonoBehaviour
     {
-        [SerializeField] private ZoneDetector detector;
-        [SerializeField] private ModeManager modes;
-        [SerializeField] private SlamSessionController slam;
-        [SerializeField] private AnchorPlacementInput input;
-        [SerializeField] private ZoneAnchorStore store;
-
-        [Header("UI (legacy Text, font size >= 20, Bold)")]
-        [SerializeField] private Text modeText;    // top-left
-        [SerializeField] private Text statusText;  // bottom
-        [SerializeField] private Text toastText;   // top-center
-        [SerializeField] private Text menuText;    // center, above the gaze dot; empty when the menu is closed
-
         [SerializeField] private float toastSeconds = 2.5f;
+
+        // ---- Layout (RayNeo design specs) ----
+        // Canvas reference 640x480 px covering a 30 deg FOV (treated as the diagonal).
+        private const float CanvasWidthPx = 640f;
+        private const float CanvasHeightPx = 480f;
+        private const float DisplayFovDeg = 30f;
+        // HUD distance in front of the eyes. Scale is derived so the 640x480 canvas fills the FOV.
+        private const float HudDistanceM = 2f;
+        // Black safety margin, spec says 16-30 px.
+        private const float MarginPx = 24f;
+        // Font sizes: title 28-40, body 20-24, aux 16-18 (min 16).
+        private const int ModeFontSize = 32;
+        private const int ToastFontSize = 22;
+        private const int StatusFontSize = 18;
+        private const int MenuFontSize = 24;
+        // Gap between the center gaze dot and the bottom of the anchor menu.
+        private const float MenuGapPx = 30f;
 
         private static readonly Color Cyan = new Color32(0x4D, 0xE2, 0xFF, 0xFF);
         private static readonly Color Green = new Color32(0x44, 0xFF, 0x66, 0xFF);
         private static readonly Color Purple = new Color32(0x85, 0x66, 0xFF, 0xFF);
         private const string CyanHex = "#4DE2FF";
 
+        private ZoneDetector detector;
+        private ModeManager modes;
+        private SlamSessionController slam;
+        private AnchorPlacementInput input;
+        private ZoneAnchorStore store;
+
+        private Text modeText;    // top-left, second row
+        private Text toastText;   // top-center
+        private Text menuText;    // center, above the gaze dot; empty when the menu is closed
+        private Text statusText;  // bottom
+
         private float toastHideTime;
         private float nextRefresh;
 
-        /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
+        /// <summary>
+        /// Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.
+        /// Also builds the HUD canvas as a child of the head camera.
+        /// </summary>
         public void Configure(ZoneDetector detector, ModeManager modes, SlamSessionController slam,
-            AnchorPlacementInput input, ZoneAnchorStore store,
-            Text modeText, Text statusText, Text toastText, Text menuText)
+            AnchorPlacementInput input, ZoneAnchorStore store, Transform head)
         {
             this.detector = detector;
             this.modes = modes;
             this.slam = slam;
             this.input = input;
             this.store = store;
-            this.modeText = modeText;
-            this.statusText = statusText;
-            this.toastText = toastText;
-            this.menuText = menuText;
+            BuildCanvas(head);
         }
 
         private void OnEnable()
@@ -101,7 +117,6 @@ namespace RayneoIdle.Zones
         // Selected option = cyan with brackets, others = the text's base color (green).
         private void RefreshMenu()
         {
-            if (menuText == null) return;
             if (!input.IsMenuOpen) { menuText.text = ""; return; }
 
             var sb = new System.Text.StringBuilder("<size=20>SET ANCHOR</size>\n");
@@ -119,6 +134,71 @@ namespace RayneoIdle.Zones
             toastText.text = msg;
             toastText.color = Cyan;
             toastHideTime = Time.unscaledTime + toastSeconds;
+        }
+
+        // ---------------------------------------------------------------- canvas
+
+        private void BuildCanvas(Transform head)
+        {
+            var go = new GameObject("Zone HUD Canvas", typeof(RectTransform));
+            int uiLayer = LayerMask.NameToLayer("UI");
+            if (uiLayer >= 0) go.layer = uiLayer;
+            var canvasRt = (RectTransform)go.transform;
+            canvasRt.SetParent(head, false);
+
+            var canvas = go.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.worldCamera = head.GetComponent<Camera>();
+            // RayNeo replacement for GraphicRaycaster. No plain GraphicRaycaster is added.
+            go.AddComponent<XRGraphicRaycaster>();
+
+            // Visible diagonal at HudDistanceM = 2 * d * tan(FOV/2); divide by the canvas diagonal in px.
+            float diagPx = Mathf.Sqrt(CanvasWidthPx * CanvasWidthPx + CanvasHeightPx * CanvasHeightPx);
+            float metersPerPx = 2f * HudDistanceM * Mathf.Tan(DisplayFovDeg * 0.5f * Mathf.Deg2Rad) / diagPx;
+            canvasRt.sizeDelta = new Vector2(CanvasWidthPx, CanvasHeightPx);
+            canvasRt.localPosition = new Vector3(0f, 0f, HudDistanceM);
+            canvasRt.localRotation = Quaternion.identity;
+            canvasRt.localScale = Vector3.one * metersPerPx;
+
+            float innerWidth = CanvasWidthPx - 2 * MarginPx;
+            // top zone = toasts
+            toastText = CreateText(canvasRt, "ToastText", ToastFontSize, Cyan, TextAnchor.UpperCenter,
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -MarginPx), new Vector2(innerWidth, 32f));
+            // top-left, second row (first row belongs to toasts)
+            modeText = CreateText(canvasRt, "ModeText", ModeFontSize, Cyan, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(MarginPx, -(MarginPx + 40f)), new Vector2(innerWidth, 44f));
+            // center zone, bottom edge MenuGapPx above the gaze dot so the dot stays visible
+            menuText = CreateText(canvasRt, "MenuText", MenuFontSize, Green, TextAnchor.LowerCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), new Vector2(0f, MenuGapPx), new Vector2(innerWidth, 70f));
+            // bottom zone = hints, two lines
+            statusText = CreateText(canvasRt, "StatusText", StatusFontSize, Green, TextAnchor.LowerLeft,
+                new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(MarginPx, MarginPx), new Vector2(innerWidth, 52f));
+        }
+
+        private static Text CreateText(RectTransform parent, string name, int fontSize, Color color, TextAnchor align,
+            Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.pivot = pivot;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            var text = go.AddComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontStyle = FontStyle.Bold;          // spec: Bold/Medium only
+            text.fontSize = fontSize;
+            text.color = color;
+            text.alignment = align;
+            text.supportRichText = true;              // menu uses <color>/<size>
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;               // display only, keeps UI raycasts cheap
+            text.text = "";
+            return text;
         }
     }
 }

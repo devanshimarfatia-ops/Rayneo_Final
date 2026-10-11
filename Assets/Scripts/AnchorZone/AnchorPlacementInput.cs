@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using RayNeo; // SimpleTouchForLite (ARDK SDK/Runtime/Scripts/Comps/SimpleTouchForLite.cs)
+using RayNeo; // SimpleTouchForLite, HeadTrackedPoseDriver (ARDK SDK/Runtime/Scripts/Comps/)
 
 namespace RayneoIdle.Zones
 {
@@ -17,6 +17,7 @@ namespace RayneoIdle.Zones
     ///     No input for menuTimeoutSeconds -> menu closes      (Editor: Escape closes at once)
     ///
     ///   Double tap -> RESERVED for system back/exit, never used here.
+    ///   Editor only: WASD walk, Q / E turn (simulated head pose).
     ///
     /// The anchor is placed at the HEAD position projected to the floor plane,
     /// so the workflow is: sit/stand where you usually work, tap, choose Work, tap.
@@ -117,8 +118,36 @@ namespace RayneoIdle.Zones
             if (kb.rightArrowKey.wasPressedThisFrame) MoveSelection(+1);
             if (kb.leftArrowKey.wasPressedThisFrame) MoveSelection(-1);
             if (kb.escapeKey.wasPressedThisFrame && IsMenuOpen) CloseMenu("Cancelled");
+            UpdateEditorWalk(kb);
 #endif
         }
+
+#if UNITY_EDITOR
+        // ---- Editor-only head simulation: WASD = walk (relative to facing), Q / E = turn ----
+        // In the Editor the ARDK's HeadTrackedPoseDriver overwrites the camera transform every
+        // frame with its debug pose, so the pose is fed through its static SetPosition /
+        // SetQuaternion hooks instead of moving the transform. Compiled out of device builds.
+        private const float EditorWalkSpeed = 1.2f; // m/s, roughly walking pace
+        private const float EditorTurnSpeed = 90f;  // deg/s
+        private Vector3 editorHeadPos;
+        private float editorHeadYaw;
+
+        private void UpdateEditorWalk(Keyboard kb)
+        {
+            float turn = (kb.eKey.isPressed ? 1f : 0f) - (kb.qKey.isPressed ? 1f : 0f);
+            editorHeadYaw += turn * EditorTurnSpeed * Time.deltaTime;
+            Quaternion rot = Quaternion.Euler(0f, editorHeadYaw, 0f);
+
+            Vector3 dir = new Vector3(
+                (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f),
+                0f,
+                (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f));
+            editorHeadPos += rot * dir.normalized * EditorWalkSpeed * Time.deltaTime;
+
+            HeadTrackedPoseDriver.SetPosition(editorHeadPos);
+            HeadTrackedPoseDriver.SetQuaternion(rot);
+        }
+#endif
 
         // Trigger: SimpleTouchForLite.OnSimpleTap (fires ~0.4 s after the tap, once the SDK
         // is sure it was not a double/triple tap).

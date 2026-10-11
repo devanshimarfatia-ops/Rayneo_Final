@@ -3,14 +3,6 @@ using UnityEngine;
 
 namespace RayneoIdle.Zones
 {
-    public enum AppMode
-    {
-        Default = 0, // outside any zone
-        Work = 1,
-        Bedroom = 2,
-        Kitchen = 3
-    }
-
     /// <summary>
     /// Turns zone events into app modes. Gameplay systems should listen to
     /// OnModeChanged instead of ZoneDetector, so detection can be swapped later
