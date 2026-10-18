@@ -3,6 +3,16 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.unity3d.player"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- Voice todo input (Android SpeechRecognizer). Also requested at runtime by VoiceInput. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 11+ package visibility: without these entries the system speech service and the
+         RayNeo To-do provider are invisible to this app (isRecognitionAvailable = false, call() fails). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <provider android:authorities="com.rayneo.notes.TodoContentProvider" />
+    </queries>
     <application>
         <meta-data android:name="com.rayneo.mercury.app" android:value="true" />
         <activity android:name="com.rayneo.openxradapter.UnityOpenXrActivity"
