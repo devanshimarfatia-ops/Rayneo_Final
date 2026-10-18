@@ -13,14 +13,16 @@ namespace RayneoIdle.Zones
     ///     Triple tap   -> remove nearest anchor               (Editor: Backspace)
     ///   Menu open:
     ///     Swipe fwd/back -> choose Work / Kitchen / Bedroom   (Editor: Left / Right arrow)
-    ///     Single tap     -> confirm, place anchor here        (Editor: Space)
-    ///     No input for menuTimeoutSeconds -> menu closes      (Editor: Escape closes at once)
+    ///     Single tap     -> confirm, mark the spot where the user STANDS (Editor: Space)
+    ///     Double tap     -> cancel, close without placing (Editor: Escape)
+    ///     No input for menuTimeoutSeconds -> menu closes
     ///
-    ///   Double tap -> RESERVED for system back/exit, never used here.
+    ///   Double tap while the menu is CLOSED is ignored here (left to the system back/exit).
     ///   Editor only: WASD walk, Q / E turn (simulated head pose).
     ///
-    /// The anchor is placed at the HEAD position projected to the floor plane,
-    /// so the workflow is: sit/stand where you usually work, tap, choose Work, tap.
+    /// The anchor is placed at the USER'S OWN POSITION (head projected straight down), not at
+    /// whatever the user looks at: the zone is "the area within Enter Radius of where I stood".
+    /// Workflow: stand / sit where you usually work, tap, choose Work, tap.
     /// </summary>
     public class AnchorPlacementInput : MonoBehaviour
     {
@@ -31,6 +33,11 @@ namespace RayneoIdle.Zones
         [Header("Menu")]
         [Tooltip("Menu closes by itself after this many seconds without a tap or swipe.")]
         [SerializeField] private float menuTimeoutSeconds = 10f;
+
+        [Header("Placement")]
+        [Tooltip("Anchor height = eye height minus this (m), roughly waist / desk height. Only affects where " +
+                 "the marker is drawn (seen once you step away); zone detection uses horizontal distance.")]
+        [SerializeField] private float markerDropMeters = 0.8f;
 
         [Header("Touchpad")]
         [Tooltip("Flip if swiping forward on the X3 Pro temple moves the menu selection the wrong way.")]
@@ -81,13 +88,13 @@ namespace RayneoIdle.Zones
             }
             touch.OnSimpleTap.AddListener(HandleTap);
             touch.OnTripleTap.AddListener(HandleTripleTap);
+            touch.OnDoubleTap.AddListener(HandleDoubleTap);
             // NOTE: use the per-step OnSwipeLeft/Right events. The OnSwipe*End events never
             // fire in ARDK 1.1.2 (their internal LEFT_SWIPE/RIGHT_SWIPE state is never set).
             // The ARDK also maps LEFT_SWIPE_STEP -> OnSwipeRight, so the physical direction
             // must be confirmed on device; use invertSwipe to flip it.
             touch.OnSwipeRight.AddListener(HandleSwipeRight);
             touch.OnSwipeLeft.AddListener(HandleSwipeLeft);
-            // OnDoubleTap is intentionally NOT used: double tap = system back/exit.
             touchpadBound = true;
         }
 
@@ -99,6 +106,7 @@ namespace RayneoIdle.Zones
             var touch = SimpleTouchForLite.Instance;
             touch.OnSimpleTap.RemoveListener(HandleTap);
             touch.OnTripleTap.RemoveListener(HandleTripleTap);
+            touch.OnDoubleTap.RemoveListener(HandleDoubleTap);
             touch.OnSwipeRight.RemoveListener(HandleSwipeRight);
             touch.OnSwipeLeft.RemoveListener(HandleSwipeLeft);
             touchpadBound = false;
@@ -157,6 +165,13 @@ namespace RayneoIdle.Zones
             else ConfirmPlacement();
         }
 
+        // Trigger: SimpleTouchForLite.OnDoubleTap. Only acts while the menu is open (= back / cancel);
+        // with the menu closed the double tap is left to the system.
+        private void HandleDoubleTap()
+        {
+            if (IsMenuOpen) CloseMenu("Cancelled");
+        }
+
         // Trigger: SimpleTouchForLite.OnTripleTap. Only acts when the menu is closed.
         private void HandleTripleTap()
         {
@@ -213,14 +228,15 @@ namespace RayneoIdle.Zones
             if (!slam.IsTracking)
             {
                 menuCloseTime = Time.unscaledTime + menuTimeoutSeconds;
-                OnToast?.Invoke("No tracking - look around");
+                OnToast?.Invoke(slam.IsDrifting ? "Tracking drift - hold still" : "No tracking - look around");
                 return;
             }
 
+            // Anchor = the user's own position (head projected down); look direction is ignored.
             Vector3 p = detector.HeadPosition;
-            p.y = 0f;
+            p.y -= markerDropMeters;
             store.Add(SelectedType, p);
-            CloseMenu($"{SelectedType} anchor set");
+            CloseMenu($"{SelectedType} zone set here");
         }
 
         public void RemoveNearest()

@@ -7,7 +7,7 @@ namespace RayneoIdle.Zones
     /// Drop-in component: add it to any GameObject in a scene that already has the RayNeo
     /// "XR Plugin" prefab. On Awake it creates the whole anchor-zone system at runtime:
     ///   ZoneSystem (SlamSessionController, ZoneAnchorStore, ZoneDetector, ModeManager,
-    ///   AnchorPlacementInput, ZoneDebugHUD) + head-locked HUD canvas, all wired.
+    ///   AnchorPlacementInput, ZoneDebugHUD, ZoneAnchorMarkers) + head-locked HUD canvas, all wired.
     /// Editor testing (WASD walk, Space / arrows for the menu) is handled by AnchorPlacementInput.
     /// All tuning lives on this component, so nothing else has to be set up in the scene.
     /// </summary>
@@ -28,10 +28,17 @@ namespace RayneoIdle.Zones
         [Header("Input")]
         [Tooltip("Flip if swiping forward on the temple moves the menu selection the wrong way.")]
         [SerializeField] private bool invertSwipe = false;
+        [Tooltip("Hide the XR Plugin gaze dot (LaserBeamDot) while the anchor menu is open, so it is not " +
+                 "mistaken for an object pointer: anchors mark where the user stands.")]
+        [SerializeField] private bool hideGazeDotInMenu = true;
 
         [Header("SLAM / debug")]
         [Tooltip("Debug fallback: treat SLAM as tracking even if GetSlamStatus() never reports SUCCESS.")]
-        [SerializeField] private bool ignoreSlamStatus = false;
+        [SerializeField] private bool ignoreSlamStatus = true;
+        [Tooltip("DRIFT trigger: head moving faster than this (m/s) = runaway pose, detection pauses.")]
+        [SerializeField] private float maxHeadSpeed = 3f;
+        [Tooltip("DRIFT recovery: speed must stay normal for this long (s) before detection resumes.")]
+        [SerializeField] private float driftRecoverSeconds = 2f;
         [Tooltip("Force the camera to clear to solid black (#000000 = transparent on the glasses).")]
         [SerializeField] private bool forceBlackBackground = true;
 
@@ -70,12 +77,14 @@ namespace RayneoIdle.Zones
             var modes = system.AddComponent<ModeManager>();
             var input = system.AddComponent<AnchorPlacementInput>();
             var hud = system.AddComponent<ZoneDebugHUD>();
+            var markers = system.AddComponent<ZoneAnchorMarkers>();
 
-            slam.Configure(head, ignoreSlamStatus);
+            slam.Configure(head, ignoreSlamStatus, maxHeadSpeed, driftRecoverSeconds);
             detector.Configure(store, slam, head, enterRadius, exitRadius, dwellSeconds);
             modes.Configure(detector);
             input.Configure(store, detector, slam, invertSwipe);
-            hud.Configure(detector, modes, slam, input, store, head); // also builds the HUD canvas
+            hud.Configure(detector, modes, slam, input, store, head, hideGazeDotInMenu); // also builds the HUD canvas
+            markers.Configure(store, slam, head);
 
             system.SetActive(true);
             Debug.Log($"[AnchorZoneBootstrap] Zone system created (enter {enterRadius} m / {dwellSeconds} s, exit {exitRadius} m)");

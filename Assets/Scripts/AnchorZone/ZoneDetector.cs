@@ -9,7 +9,7 @@ namespace RayneoIdle.Zones
     /// ENTER trigger: horizontal distance &lt; enterRadius, held continuously for dwellSeconds.
     /// EXIT trigger:  horizontal distance &gt; exitRadius (larger than enterRadius = hysteresis,
     ///                so standing on the border does not flicker between modes).
-    /// LOST tracking: zone is kept, no new evaluation until tracking returns.
+    /// LOST tracking / DRIFT: zone is kept, dwell is reset, no new evaluation until tracking returns.
     /// </summary>
     public class ZoneDetector : MonoBehaviour
     {
@@ -29,6 +29,8 @@ namespace RayneoIdle.Zones
         public ZoneAnchorData CandidateAnchor { get; private set; }
         public float CandidateProgress => dwellSeconds <= 0f ? 1f : Mathf.Clamp01(candidateTimer / dwellSeconds);
         public float NearestDistance { get; private set; } = float.PositiveInfinity;
+        /// <summary>Anchor that NearestDistance refers to (the current zone's anchor while inside one).</summary>
+        public ZoneAnchorData NearestAnchor { get; private set; }
 
         public event Action<ZoneAnchorData> OnZoneEntered;
         public event Action<ZoneAnchorData> OnZoneExited;
@@ -37,6 +39,7 @@ namespace RayneoIdle.Zones
         private float nextEvaluateTime;
 
         public Vector3 HeadPosition => head != null ? head.position : Vector3.zero;
+        public float EnterRadius => enterRadius;
 
         /// <summary>Runtime wiring, used by AnchorZoneBootstrap. Call before the component is enabled.</summary>
         public void Configure(ZoneAnchorStore store, SlamSessionController slam, Transform head,
@@ -63,7 +66,18 @@ namespace RayneoIdle.Zones
 
         private void Update()
         {
-            if (head == null || !slam.IsTracking) return;
+            if (head == null) return;
+            if (!slam.IsTracking)
+            {
+                // Tracking lost or pose drifting: keep the current zone, but drop any
+                // half-finished dwell so a stale timer cannot fire ENTER after recovery.
+                // Distance is unknown meanwhile, so it is cleared instead of freezing the last value.
+                CandidateAnchor = null;
+                candidateTimer = 0f;
+                NearestAnchor = null;
+                NearestDistance = float.PositiveInfinity;
+                return;
+            }
             if (Time.unscaledTime < nextEvaluateTime) return;
 
             float dt = evaluateInterval;
@@ -80,6 +94,7 @@ namespace RayneoIdle.Zones
             {
                 float d = ZoneMath.HorizontalDistance(pos, CurrentAnchor.position);
                 NearestDistance = d;
+                NearestAnchor = CurrentAnchor;
                 if (d > exitRadius) ExitCurrent();
                 return;
             }
@@ -93,6 +108,7 @@ namespace RayneoIdle.Zones
                 if (d < nearestDist) { nearestDist = d; nearest = a; }
             }
             NearestDistance = nearestDist;
+            NearestAnchor = nearest;
 
             // 3) Dwell logic: must stay inside enterRadius of the SAME anchor.
             if (nearest != null && nearestDist < enterRadius)

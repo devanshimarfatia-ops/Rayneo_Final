@@ -42,6 +42,13 @@ namespace RayneoIdle.Zones
         private AnchorPlacementInput input;
         private ZoneAnchorStore store;
 
+        // XR Plugin gaze pointer (LaserBeamDot MeshRenderer + BeamGraphic LineRenderer).
+        // Hidden while the anchor menu is open so it does not look like an object picker.
+        private bool hideGazeDotInMenu;
+        private Renderer[] gazeRenderers = new Renderer[0];
+        private bool[] gazeRendererWasEnabled = new bool[0];
+        private bool gazeHidden;
+
         private Text modeText;    // top-left, second row
         private Text toastText;   // top-center
         private Text menuText;    // center, above the gaze dot; empty when the menu is closed
@@ -55,14 +62,63 @@ namespace RayneoIdle.Zones
         /// Also builds the HUD canvas as a child of the head camera.
         /// </summary>
         public void Configure(ZoneDetector detector, ModeManager modes, SlamSessionController slam,
-            AnchorPlacementInput input, ZoneAnchorStore store, Transform head)
+            AnchorPlacementInput input, ZoneAnchorStore store, Transform head, bool hideGazeDotInMenu)
         {
             this.detector = detector;
             this.modes = modes;
             this.slam = slam;
             this.input = input;
             this.store = store;
+            this.hideGazeDotInMenu = hideGazeDotInMenu;
             BuildCanvas(head);
+            FindGazeRenderers(head);
+        }
+
+        // The pointer objects live in the XR Plugin prefab (LaserBeam > LaserBeamDot / BeamGraphic).
+        // Search the whole scene by name, so it also works if the prefab is nested elsewhere.
+        private void FindGazeRenderers(Transform head)
+        {
+            var found = new System.Collections.Generic.List<Renderer>();
+            foreach (var r in FindObjectsOfType<Renderer>(true))
+            {
+                string n = r.gameObject.name;
+                if (n == "LaserBeamDot" || n == "BeamGraphic") found.Add(r);
+            }
+            gazeRenderers = found.ToArray();
+            gazeRendererWasEnabled = new bool[gazeRenderers.Length];
+            if (hideGazeDotInMenu && gazeRenderers.Length == 0)
+                Debug.LogWarning("[ZoneHUD] Gaze dot renderers (LaserBeamDot / BeamGraphic) not found, cannot hide them.");
+            foreach (var r in gazeRenderers)
+                Debug.Log($"[ZoneHUD] Gaze renderer found: {r.gameObject.name} ({r.GetType().Name}) enabled={r.enabled}");
+        }
+
+        // Trigger: menu open/close + hideGazeDotInMenu. Saves the original renderer states on open
+        // and restores them on close.
+        private void LateUpdate()
+        {
+            bool hide = hideGazeDotInMenu && input.IsMenuOpen;
+            if (hide && !gazeHidden)
+            {
+                for (int i = 0; i < gazeRenderers.Length; i++)
+                    gazeRendererWasEnabled[i] = gazeRenderers[i] != null && gazeRenderers[i].enabled;
+                gazeHidden = true;
+                Debug.Log($"[ZoneHUD] Hiding {gazeRenderers.Length} gaze renderers");
+            }
+            else if (!hide && gazeHidden)
+            {
+                for (int i = 0; i < gazeRenderers.Length; i++)
+                    if (gazeRenderers[i] != null) gazeRenderers[i].enabled = gazeRendererWasEnabled[i];
+                gazeHidden = false;
+            }
+        }
+
+        // Trigger: every camera, right before culling. The ARDK LaserBeam (closed source) may switch its
+        // renderers back on in its own Update/LateUpdate, and script order is not guaranteed, so they are
+        // switched off here, after all scripts and immediately before the frame is drawn.
+        private void HideGazeBeforeCull(Camera cam)
+        {
+            if (!gazeHidden) return;
+            foreach (var r in gazeRenderers) if (r != null) r.enabled = false;
         }
 
         private void OnEnable()
@@ -70,6 +126,8 @@ namespace RayneoIdle.Zones
             input.OnToast += ShowToast;
             input.OnMenuChanged += RefreshMenu;
             modes.OnModeChanged += HandleModeChanged;
+            slam.OnTrackingChanged += HandleTrackingChanged;
+            Camera.onPreCull += HideGazeBeforeCull; // built-in render pipeline callback
         }
 
         private void OnDisable()
@@ -77,6 +135,26 @@ namespace RayneoIdle.Zones
             input.OnToast -= ShowToast;
             input.OnMenuChanged -= RefreshMenu;
             modes.OnModeChanged -= HandleModeChanged;
+            slam.OnTrackingChanged -= HandleTrackingChanged;
+            Camera.onPreCull -= HideGazeBeforeCull;
+        }
+
+        // Trigger: SlamSessionController.OnTrackingChanged. Tells the user why markers vanished and
+        // distances stopped (e.g. system screen recording takes the camera from SLAM).
+        // No toast for the first "tracking on" at startup, only for a loss and the recovery after it.
+        private bool trackingWasLost;
+        private void HandleTrackingChanged(bool tracking)
+        {
+            if (!tracking)
+            {
+                trackingWasLost = true;
+                ShowToast(slam.IsDrifting ? "Position jumped - zones paused" : "Tracking lost - zones paused");
+            }
+            else if (trackingWasLost)
+            {
+                trackingWasLost = false;
+                ShowToast("Tracking back");
+            }
         }
 
         private void Start()
@@ -94,14 +172,19 @@ namespace RayneoIdle.Zones
             nextRefresh = Time.unscaledTime + 0.2f;
 
             // s = raw Algorithm.GetSlamStatus(): 0 init, 1 success, 2 fail, -1 not polled (Editor)
-            string track = (slam.IsTracking ? "TRACKING" : "NO TRACKING") +
+            // DRIFT = SlamSessionController drift guard tripped (runaway pose), detection paused.
+            string track = (slam.IsDrifting ? "DRIFT" : slam.IsTracking ? "TRACKING" : "NO TRACKING") +
                            (slam.RawStatus >= 0 ? $" s{slam.RawStatus}" : "");
-            string dist = float.IsInfinity(detector.NearestDistance) ? "-" : $"{detector.NearestDistance:F1}m";
+            // near = the anchor the detector is measuring (name + horizontal distance); per-anchor
+            // distances are also shown on each world marker (ZoneAnchorMarkers).
+            string dist = detector.NearestAnchor == null || float.IsInfinity(detector.NearestDistance)
+                ? "-"
+                : $"{detector.NearestAnchor.zoneType.ToString().ToUpper()} {detector.NearestDistance:F1}m";
             string dwell = detector.CandidateAnchor != null
                 ? $"  entering {detector.CandidateAnchor.zoneType} {detector.CandidateProgress * 100f:F0}%"
                 : "";
             statusText.text = $"{track} | anchors {store.Anchors.Count} | near {dist}\n" +
-                              (input.IsMenuOpen ? "Swipe: choose  Tap: confirm" : "Tap: set anchor  3x tap: remove") +
+                              (input.IsMenuOpen ? "Swipe: choose  Tap: mark  2x tap: cancel" : "Tap: mark this spot  3x tap: remove") +
                               dwell;
         }
 
@@ -115,18 +198,22 @@ namespace RayneoIdle.Zones
 
         // Trigger: AnchorPlacementInput.OnMenuChanged (open / close / selection moved).
         // Selected option = cyan with brackets, others = the text's base color (green).
+        // Wording is position-based on purpose ("where you stand", "around you"): the anchor is the
+        // user's own spot, not an object, and the gaze dot is hidden while this menu is open.
         private void RefreshMenu()
         {
             if (!input.IsMenuOpen) { menuText.text = ""; return; }
 
-            var sb = new System.Text.StringBuilder("<size=20>SET ANCHOR</size>\n");
+            var sb = new System.Text.StringBuilder("<size=20>MARK WHERE YOU STAND</size>\n");
             foreach (var type in AnchorPlacementInput.MenuOrder)
             {
                 string name = type.ToString().ToUpper();
                 sb.Append(type == input.SelectedType ? $"<color={CyanHex}>[ {name} ]</color>" : name);
                 sb.Append("    ");
             }
-            menuText.text = sb.ToString().TrimEnd();
+            sb.Length = sb.ToString().TrimEnd().Length;
+            sb.Append('\n').Append($"<size=18>zone = {detector.EnterRadius:0.#} m around you</size>");
+            menuText.text = sb.ToString();
         }
 
         private void ShowToast(string msg)

@@ -60,13 +60,6 @@ namespace RayneoIdle.Zones
             return true;
         }
 
-        public void ClearAll()
-        {
-            anchors.Clear();
-            Save();
-            OnAnchorsChanged?.Invoke();
-        }
-
         private void Save()
         {
             try
