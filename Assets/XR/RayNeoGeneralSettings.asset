@@ -15,52 +15,92 @@ MonoBehaviour:
   touchConfigs:
   - platformType: 32
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: 33
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: 34
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: 35
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: 36
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: 48
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: 4096
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   - platformType: -1
     MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
     MovingThreshold: 10
+    MovingUpDownThreshold: 32
     SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
     ReleaseSimpleTapImmediately: 0
     ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
   baseConfig:
     LogLevel: 4
     SleepTimeOut: -1
@@ -97,7 +137,7 @@ MonoBehaviour:
     Height: 1080
     FOV: 22.4
   - DeviceName: X2
-    type: 4096
+    type: 4097
     Width: 640
     Height: 480
     FOV: 16.67944
