@@ -69,6 +69,7 @@ namespace RayneoIdle.Todo
         private readonly HashSet<long> knownBeforeTap = new HashSet<long>();
 
         private Text toastText, listHeaderText, hintText;
+        private GameObject canvasGo; // parented to the head, so it is hidden / shown in OnDisable / OnEnable
 
         /// <summary>One visible line of the system list: number + text, frame shown when selected.</summary>
         private class ListRow
@@ -94,8 +95,21 @@ namespace RayneoIdle.Todo
             BuildCanvas(head);
         }
 
-        private void OnEnable() => BindTouchpad();
-        private void OnDisable() => UnbindTouchpad();
+        private void OnEnable()
+        {
+            BindTouchpad();
+            if (canvasGo != null) canvasGo.SetActive(true);
+            // Re-read the system list when shown again (it may have changed while hidden).
+            if (rows != null) RefreshSystemList();
+        }
+
+        // Trigger: component disabled (e.g. FeatureLauncher went back to its home screen).
+        // The canvas lives under the head camera, not under this object, so hide it explicitly.
+        private void OnDisable()
+        {
+            UnbindTouchpad();
+            if (canvasGo != null) canvasGo.SetActive(false);
+        }
 
         private void Start() => RefreshSystemList();
 
@@ -324,6 +338,7 @@ namespace RayneoIdle.Todo
         private void BuildCanvas(Transform head)
         {
             var go = new GameObject("Voice Todo Canvas", typeof(RectTransform));
+            canvasGo = go;
             int uiLayer = LayerMask.NameToLayer("UI");
             if (uiLayer >= 0) go.layer = uiLayer;
             var canvasRt = (RectTransform)go.transform;

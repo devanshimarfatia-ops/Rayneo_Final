@@ -53,6 +53,7 @@ namespace RayneoIdle.Zones
         private Text toastText;   // top-center
         private Text menuText;    // center, above the gaze dot; empty when the menu is closed
         private Text statusText;  // bottom
+        private GameObject canvasGo; // parented to the head, so it is hidden / shown in OnDisable / OnEnable
 
         private float toastHideTime;
         private float nextRefresh;
@@ -128,6 +129,7 @@ namespace RayneoIdle.Zones
             modes.OnModeChanged += HandleModeChanged;
             slam.OnTrackingChanged += HandleTrackingChanged;
             Camera.onPreCull += HideGazeBeforeCull; // built-in render pipeline callback
+            if (canvasGo != null) canvasGo.SetActive(true);
         }
 
         private void OnDisable()
@@ -137,6 +139,16 @@ namespace RayneoIdle.Zones
             modes.OnModeChanged -= HandleModeChanged;
             slam.OnTrackingChanged -= HandleTrackingChanged;
             Camera.onPreCull -= HideGazeBeforeCull;
+            // Trigger: component disabled (e.g. FeatureLauncher went back to its home screen).
+            // The canvas lives under the head camera, not under this object, so hide it explicitly,
+            // and give the gaze dot back if the menu had hidden it.
+            if (canvasGo != null) canvasGo.SetActive(false);
+            if (gazeHidden)
+            {
+                for (int i = 0; i < gazeRenderers.Length; i++)
+                    if (gazeRenderers[i] != null) gazeRenderers[i].enabled = gazeRendererWasEnabled[i];
+                gazeHidden = false;
+            }
         }
 
         // Trigger: SlamSessionController.OnTrackingChanged. Tells the user why markers vanished and
@@ -228,6 +240,7 @@ namespace RayneoIdle.Zones
         private void BuildCanvas(Transform head)
         {
             var go = new GameObject("Zone HUD Canvas", typeof(RectTransform));
+            canvasGo = go;
             int uiLayer = LayerMask.NameToLayer("UI");
             if (uiLayer >= 0) go.layer = uiLayer;
             var canvasRt = (RectTransform)go.transform;

@@ -25,7 +25,7 @@ Anchors mark WHERE YOU STAND, not what you look at. Stand / sit at the spot firs
 1. Tap -> "MARK WHERE YOU STAND" menu opens, with "zone = 1.0 m around you" under it.
    The XR Plugin gaze dot is hidden while the menu is open (`Hide Gaze Dot In Menu`),
    so it is not mistaken for an object pointer.
-2. Swipe forward/back -> choose WORK / KITCHEN / BEDROOM.
+2. Swipe forward/back -> choose WORK / KITCHEN / BEDROOM (forward = left, back = right, see `Common/SwipeMap.cs`).
 3. Tap -> your current spot becomes the anchor. Double tap -> cancel without placing.
    The menu closes by itself after 10 s without input.
 Triple tap (menu closed) = remove nearest anchor. Double tap with the menu closed is left to the system (back/exit).
@@ -34,7 +34,8 @@ A diamond marker with the zone name is drawn at each anchor (about waist height)
 Why not "point at an object": ARDK 1.1.2 has no depth, hit test or object recognition, and plane
 detection returned no planes on X3 Pro (tested 2026-10-18: EnablePlaneDetection gets no runtime
 response, GetPlaneInfo always 0). The camera is also unavailable while SLAM runs.
-If the swipe direction feels reversed, tick `Invert Swipe` on AnchorZoneBootstrap.
+Swipe direction is project-wide in `Assets/Scripts/Common/SwipeMap.cs`; `Invert Swipe` on AnchorZoneBootstrap flips it only here.
+Also available from the Plan B launcher (`Assets/Scripts/Launcher/README.md`, scene `Test-Launcher`).
 
 Zone triggers: ENTER = within 1.0 m for 2 s, EXIT = farther than 2.0 m (set on AnchorZoneBootstrap).
 

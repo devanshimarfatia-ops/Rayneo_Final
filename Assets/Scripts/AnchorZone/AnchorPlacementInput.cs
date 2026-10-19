@@ -91,8 +91,7 @@ namespace RayneoIdle.Zones
             touch.OnDoubleTap.AddListener(HandleDoubleTap);
             // NOTE: use the per-step OnSwipeLeft/Right events. The OnSwipe*End events never
             // fire in ARDK 1.1.2 (their internal LEFT_SWIPE/RIGHT_SWIPE state is never set).
-            // The ARDK also maps LEFT_SWIPE_STEP -> OnSwipeRight, so the physical direction
-            // must be confirmed on device; use invertSwipe to flip it.
+            // Direction comes from SwipeMap (project-wide: forward = left, back = right).
             touch.OnSwipeRight.AddListener(HandleSwipeRight);
             touch.OnSwipeLeft.AddListener(HandleSwipeLeft);
             touchpadBound = true;
@@ -180,10 +179,11 @@ namespace RayneoIdle.Zones
         }
 
         // Trigger: SimpleTouchForLite.OnSwipeRight (fires each time a swipe travels ~200 touch px).
-        private void HandleSwipeRight(Vector2 _) => HandleSwipe(invertSwipe ? -1 : +1);
+        // Physical forward swipe -> left / previous zone (SwipeMap).
+        private void HandleSwipeRight(Vector2 _) => HandleSwipe(SwipeMap.OnSwipeRightStep(invertSwipe));
 
-        // Trigger: SimpleTouchForLite.OnSwipeLeft.
-        private void HandleSwipeLeft(Vector2 _) => HandleSwipe(invertSwipe ? +1 : -1);
+        // Trigger: SimpleTouchForLite.OnSwipeLeft. Physical back swipe -> right / next zone.
+        private void HandleSwipeLeft(Vector2 _) => HandleSwipe(SwipeMap.OnSwipeLeftStep(invertSwipe));
 
         private void HandleSwipe(int dir)
         {

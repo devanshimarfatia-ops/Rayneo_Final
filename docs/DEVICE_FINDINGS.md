@@ -67,6 +67,9 @@ May change with any firmware update.
 ## Touchpad (SimpleTouchForLite)
 - (2026-10-19) Vertical swipe on the X3 Pro temple: physical swipe up fires `OnSwipeUp`, swipe down
   fires `OnSwipeDown` (per-step events, no inversion needed). Used for list navigation in `Test-Voice`.
+- (2026-10-19) Horizontal swipe: a physical FORWARD swipe fires `OnSwipeRight`, back fires `OnSwipeLeft`
+  (the ARDK maps `LEFT_SWIPE_STEP` -> `OnSwipeRight`). No system setting for swipe direction exists in the ARDK.
+  Project convention (forward = left / previous) is in `Assets/Scripts/Common/SwipeMap.cs`.
 
 ## Open questions (to test)
 - Does the SLAM origin reset per app session? (AnchorZone test 3)

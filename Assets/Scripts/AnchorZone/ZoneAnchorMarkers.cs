@@ -51,8 +51,18 @@ namespace RayneoIdle.Zones
             this.head = head;
         }
 
-        private void OnEnable() => store.OnAnchorsChanged += Rebuild;
-        private void OnDisable() => store.OnAnchorsChanged -= Rebuild;
+        private void OnEnable()
+        {
+            store.OnAnchorsChanged += Rebuild;
+            nextFaceTime = 0f; // next Update re-applies the tracking-based visibility
+        }
+
+        private void OnDisable()
+        {
+            store.OnAnchorsChanged -= Rebuild;
+            // Trigger: component disabled (e.g. FeatureLauncher left the anchor screen): hide all markers.
+            SetMarkersVisible(false);
+        }
         private void Start() => Rebuild();
 
         private void Update()
