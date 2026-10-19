@@ -27,7 +27,8 @@ namespace RayneoIdle.Todo
     /// so every call is wrapped and failures only log + return false/empty.
     ///
     /// Methods (method -> arg): getTodoUnfinished / getTodoFinished (no arg, result = {"list":[...]}),
-    /// todoSetFinished / todoSetUnfinished / deleteTodo (arg = item timestamp).
+    /// todoSetFinished / todoSetUnfinished / deleteTodo (arg = item timestamp),
+    /// startTodo (no arg, result = true: opens the system voice-create screen).
     /// Requires the provider in the manifest <queries> on Android 11+.
     /// Editor: returns a small fake list so the UI can be tested.
     /// </summary>
@@ -40,6 +41,14 @@ namespace RayneoIdle.Todo
 
         public static List<RemoteTodo> GetUnfinished() => GetList("getTodoUnfinished");
         public static List<RemoteTodo> GetFinished() => GetList("getTodoFinished");
+
+        /// <summary>
+        /// Opens the system To-do voice-create screen (com.rayneo.notes TodoCreateActivity) on top of
+        /// this app: it records, recognises in the RayNeo cloud (system language, en-US on our device),
+        /// saves the todo and returns to this app by itself. This app is paused meanwhile, so detect the
+        /// new item by re-reading the list when focus comes back. Returns false if the screen was not started.
+        /// </summary>
+        public static bool StartVoiceCreate() => Call("startTodo", "", out string started) && started == "true";
 
         public static bool SetFinished(long timestamp) => Call("todoSetFinished", timestamp.ToString(), out _);
         public static bool SetUnfinished(long timestamp) => Call("todoSetUnfinished", timestamp.ToString(), out _);
@@ -87,8 +96,10 @@ namespace RayneoIdle.Todo
                         Debug.LogWarning($"[SystemTodo] {method}({arg}) failed: {bundle.Call<string>("getString", KeyCallError)}");
                         return false;
                     }
-                    // "result" is a JSON string for the get* methods; other methods do not set it.
-                    result = bundle.Call<string>("getString", KeyResult);
+                    // "result" is a JSON string for the get* methods and a Boolean for startTodo; read it
+                    // as Object + toString so both work. Other methods do not set it (null).
+                    using (var value = bundle.Call<AndroidJavaObject>("get", KeyResult))
+                        result = value?.Call<string>("toString");
                     Debug.Log($"[SystemTodo] {method}({arg}) ok: {result}");
                     return true;
                 }
@@ -123,6 +134,12 @@ namespace RayneoIdle.Todo
                 case "todoSetUnfinished":
                     long ts = long.Parse(arg);
                     foreach (var t in fake) if (t.timestamp == ts) t.finished = method == "todoSetFinished";
+                    return true;
+                case "startTodo":
+                    // No system screen in the Editor: pretend the user said something.
+                    long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    fake.Add(new RemoteTodo { timestamp = now, updateTimestamp = now, text = "Buy milk (editor)" });
+                    result = "true";
                     return true;
             }
             return false;

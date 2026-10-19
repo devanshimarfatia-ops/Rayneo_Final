@@ -213,8 +213,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   head: {fileID: 0}
-  language: en-US
-  sessionTimeoutSeconds: 15
+  systemOpenTimeoutSeconds: 3
   invertSwipe: 0
   forceBlackBackground: 1
 --- !u!4 &277315028

@@ -9,23 +9,31 @@ using UnityEngine.UI;
 namespace RayneoIdle.Todo
 {
     /// <summary>
-    /// Device validation panel for voice todos + the RayNeo system To-do sync.
+    /// Device validation panel for voice todos through the RayNeo system To-do app.
     ///
-    ///   Single tap       -> start talking / stop and recognise      (Editor: Space)
-    ///   Double tap       -> cancel while listening; otherwise left to the system back/exit (Editor: Escape)
-    ///   Swipe fwd/back   -> select an item of the system To-do list (Editor: Left / Right arrow)
-    ///   Triple tap       -> mark the selected system item finished  (Editor: Backspace)
+    ///   Single tap       -> add a todo by voice: opens the system To-do voice screen (Editor: Space)
+    ///   Swipe up / down  -> move the selection up / down the system To-do list      (Editor: Up / Down arrow)
+    ///   Triple tap       -> mark the selected system item finished                  (Editor: Backspace)
+    ///   Double tap       -> not used (system back / exit)
     ///
-    /// Recognised sentences are only kept in memory here (last few shown); the real TodoStore comes later.
-    /// The system list is re-read on start, after a change, and when the app regains focus.
+    /// List order: oldest first, so a higher number = added later; a new todo appears at the end.
+    ///
+    /// Voice flow: tap -> SystemTodoClient.StartVoiceCreate() -> the system screen covers this app
+    /// (focus lost) -> user speaks, the system saves the todo and returns here (focus back) -> the list
+    /// is re-read and any item whose timestamp was not there before the tap is "new": an "Added: ..."
+    /// toast confirms it and the selection jumps to it.
+    /// Platform SpeechRecognizer is NOT used: on the X3 Pro the default RecognitionService is a stub.
     /// </summary>
     public class VoiceTodoTestPanel : MonoBehaviour
     {
         [SerializeField] private float toastSeconds = 2.5f;
         [Tooltip("Swipes closer together than this are ignored, so one swipe = one step.")]
         [SerializeField] private float swipeCooldownSeconds = 0.35f;
-        [Tooltip("Flip if swiping forward on the temple moves the selection the wrong way.")]
+        [Tooltip("Flip if swiping up on the temple moves the selection down instead of up.")]
         [SerializeField] private bool invertSwipe = false;
+        [Tooltip("OPEN TIMEOUT (s): after a tap, if this app has not lost focus to the system voice screen " +
+                 "within this time, the screen is considered not opened and the tap is reset.")]
+        [SerializeField] private float systemOpenTimeoutSeconds = 3f;
 
         // ---- Layout (RayNeo design specs, same canvas math as ZoneDebugHUD) ----
         private const float CanvasWidthPx = 640f;
@@ -34,66 +42,76 @@ namespace RayneoIdle.Todo
         private const float HudDistanceM = 2f;
         private const float MarginPx = 24f;
         private const int ToastFontSize = 22;
-        private const int VoiceFontSize = 26;
         private const int ListFontSize = 20;
         private const int HintFontSize = 18;
-        // How many recognised sentences / system items are shown at once.
-        private const int MaxRecognisedShown = 3;
-        private const int MaxSystemShown = 4;
+        private const int ToastMaxChars = 36;     // "Added: <text>" toast, longer texts are cut with "…"
+        // System list = the core content, centered on the canvas. Rows visible at once:
+        private const int MaxSystemShown = 5;
+        // System list rows: the selected row is drawn as a "button" (2 px cyan frame, spec: lines >= 2 px).
+        private const float ListTopPx = 105f;     // header top, relative to the canvas center
+        private const float ListHeaderPx = 26f;
+        private const float RowHeightPx = 32f;
+        private const float RowGapPx = 4f;
+        private const float RowWidthPx = 520f;
+        private const float RowPaddingPx = 12f;
+        private const float FrameLinePx = 2f;
+        private const int RowMaxChars = 34;       // longer texts are cut with "…"
 
         private static readonly Color Cyan = new Color32(0x4D, 0xE2, 0xFF, 0xFF);
         private static readonly Color Green = new Color32(0x44, 0xFF, 0x66, 0xFF);
         private const string CyanHex = "#4DE2FF";
         private const string PurpleHex = "#8566FF";
 
-        private VoiceInput voice;
-        private Text toastText, voiceText, listText, hintText;
+        private enum Flow { Idle, OpeningSystemScreen, InSystemScreen }
+
+        private Flow flow = Flow.Idle;
+        private float openDeadline;
+        private readonly HashSet<long> knownBeforeTap = new HashSet<long>();
+
+        private Text toastText, listHeaderText, hintText;
+
+        /// <summary>One visible line of the system list: number + text, frame shown when selected.</summary>
+        private class ListRow
+        {
+            public GameObject root;
+            public Text text;
+            public GameObject frame;
+        }
+        private ListRow[] rows;
         private float toastHideTime;
-        private float nextRefresh;
         private float lastSwipeTime = -999f;
         private bool touchpadBound;
 
-        private string partialText = "";
-        private readonly List<string> recognised = new List<string>();
         private List<RemoteTodo> systemTodos = new List<RemoteTodo>();
         private int selected;
+        private int scrollStart; // first visible row index; only moves when the selection leaves the window
 
         /// <summary>Runtime wiring, used by VoiceTodoTestBootstrap. Call before the component is enabled.</summary>
-        public void Configure(VoiceInput voice, Transform head, bool invertSwipe)
+        public void Configure(Transform head, bool invertSwipe, float systemOpenTimeoutSeconds)
         {
-            this.voice = voice;
             this.invertSwipe = invertSwipe;
+            this.systemOpenTimeoutSeconds = systemOpenTimeoutSeconds;
             BuildCanvas(head);
         }
 
-        private void OnEnable()
-        {
-            voice.OnStateChanged += HandleVoiceState;
-            voice.OnPartial += HandlePartial;
-            voice.OnResult += HandleResult;
-            voice.OnError += HandleError;
-            BindTouchpad();
-        }
+        private void OnEnable() => BindTouchpad();
+        private void OnDisable() => UnbindTouchpad();
 
-        private void OnDisable()
-        {
-            voice.OnStateChanged -= HandleVoiceState;
-            voice.OnPartial -= HandlePartial;
-            voice.OnResult -= HandleResult;
-            voice.OnError -= HandleError;
-            UnbindTouchpad();
-        }
+        private void Start() => RefreshSystemList();
 
-        private void Start()
-        {
-            RefreshSystemList();
-            if (!voice.IsAvailable && !Application.isEditor) ShowToast("No speech service found");
-        }
-
-        // Trigger: app regains focus (e.g. back from the system To-do app) -> re-read its list.
+        // Trigger: focus changes. Losing focus right after a tap = the system voice screen opened.
+        // Getting focus back from it = the system is done (todo saved, or user backed out).
         private void OnApplicationFocus(bool focus)
         {
-            if (focus && voice != null) RefreshSystemList();
+            if (toastText == null) return; // not configured yet
+            Debug.Log($"[VoiceTest] Focus {focus} (flow {flow})");
+            if (!focus)
+            {
+                if (flow == Flow.OpeningSystemScreen) flow = Flow.InSystemScreen;
+                return;
+            }
+            if (flow == Flow.InSystemScreen) FinishVoiceCreate();
+            else RefreshSystemList();
         }
 
         // ------------------------------------------------------------------ input
@@ -109,11 +127,12 @@ namespace RayneoIdle.Todo
                 return;
             }
             touch.OnSimpleTap.AddListener(HandleTap);
-            touch.OnDoubleTap.AddListener(HandleDoubleTap);
             touch.OnTripleTap.AddListener(HandleTripleTap);
-            // Per-step swipe events; the *End variants never fire in ARDK 1.1.2 (see AnchorPlacementInput).
-            touch.OnSwipeRight.AddListener(HandleSwipeRight);
-            touch.OnSwipeLeft.AddListener(HandleSwipeLeft);
+            // Vertical per-step swipe events (X3 Pro only): one event each time the finger travels
+            // SwipYStepTriggerDistance (25 touch px, half the horizontal step), so the cooldown matters.
+            // The *End variants are not used, same as the horizontal ones in AnchorPlacementInput.
+            touch.OnSwipeUp.AddListener(HandleSwipeUp);
+            touch.OnSwipeDown.AddListener(HandleSwipeDown);
             touchpadBound = true;
         }
 
@@ -122,50 +141,52 @@ namespace RayneoIdle.Todo
             if (!touchpadBound || !SimpleTouchForLite.SingletonExist) return;
             var touch = SimpleTouchForLite.Instance;
             touch.OnSimpleTap.RemoveListener(HandleTap);
-            touch.OnDoubleTap.RemoveListener(HandleDoubleTap);
             touch.OnTripleTap.RemoveListener(HandleTripleTap);
-            touch.OnSwipeRight.RemoveListener(HandleSwipeRight);
-            touch.OnSwipeLeft.RemoveListener(HandleSwipeLeft);
+            touch.OnSwipeUp.RemoveListener(HandleSwipeUp);
+            touch.OnSwipeDown.RemoveListener(HandleSwipeDown);
             touchpadBound = false;
         }
 
-        // Trigger: SimpleTouchForLite.OnSimpleTap. Idle -> start; listening -> stop and recognise.
+        // Trigger: SimpleTouchForLite.OnSimpleTap while idle. Snapshots the current list, then opens
+        // the system voice screen.
         private void HandleTap()
         {
-            switch (voice.State)
+            if (flow != Flow.Idle) return;
+
+            RefreshSystemList();
+            knownBeforeTap.Clear();
+            foreach (var t in systemTodos) knownBeforeTap.Add(t.timestamp);
+
+            if (!SystemTodoClient.StartVoiceCreate())
             {
-                case VoiceState.Idle:
-                    partialText = "";
-                    voice.StartListening();
-                    break;
-                case VoiceState.Starting:
-                case VoiceState.Listening:
-                    voice.StopListening();
-                    break;
+                ShowToast("System To-do not available");
+                return;
             }
+            flow = Flow.OpeningSystemScreen;
+            openDeadline = Time.unscaledTime + systemOpenTimeoutSeconds;
+            ShowToast("Say your todo");
+            RefreshHint();
+#if UNITY_EDITOR
+            // No system screen and no focus change in the Editor: the fake item already exists.
+            flow = Flow.InSystemScreen;
+            FinishVoiceCreate();
+#endif
         }
 
-        // Trigger: SimpleTouchForLite.OnDoubleTap. Only cancels a running session.
-        private void HandleDoubleTap()
-        {
-            if (voice.State == VoiceState.Idle) return;
-            voice.Cancel();
-            partialText = "";
-            ShowToast("Cancelled");
-        }
-
-        // Trigger: SimpleTouchForLite.OnTripleTap. Marks the selected system item finished.
+        // Trigger: SimpleTouchForLite.OnTripleTap while idle. Marks the selected system item finished.
         private void HandleTripleTap()
         {
-            if (voice.State != VoiceState.Idle || systemTodos.Count == 0) return;
+            if (flow != Flow.Idle || systemTodos.Count == 0) return;
             var item = systemTodos[selected];
             if (SystemTodoClient.SetFinished(item.timestamp)) ShowToast("Done: " + Shorten(item.text, 24));
             else ShowToast("System To-do update failed");
             RefreshSystemList();
         }
 
-        private void HandleSwipeRight(Vector2 _) => HandleSwipe(invertSwipe ? -1 : +1);
-        private void HandleSwipeLeft(Vector2 _) => HandleSwipe(invertSwipe ? +1 : -1);
+        // Trigger: SimpleTouchForLite.OnSwipeUp / OnSwipeDown. Up = previous (smaller number) row.
+        // Physical direction still to confirm on device; invertSwipe flips it.
+        private void HandleSwipeUp(Vector2 _) => HandleSwipe(invertSwipe ? +1 : -1);
+        private void HandleSwipeDown(Vector2 _) => HandleSwipe(invertSwipe ? -1 : +1);
 
         private void HandleSwipe(int dir)
         {
@@ -173,38 +194,36 @@ namespace RayneoIdle.Todo
             if (Time.unscaledTime - lastSwipeTime < swipeCooldownSeconds) return;
             lastSwipeTime = Time.unscaledTime;
             if (systemTodos.Count == 0) return;
-            selected = (selected + dir + systemTodos.Count) % systemTodos.Count;
+            // Clamped, not wrapped: at the top / bottom row the selection stays put, like a list.
+            selected = Mathf.Clamp(selected + dir, 0, systemTodos.Count - 1);
             RefreshList();
         }
 
-        // ------------------------------------------------------------------ voice events
+        // ------------------------------------------------------------------ voice flow
 
-        private void HandleVoiceState(VoiceState s)
+        /// <summary>Back from the system screen: diff the list against the snapshot taken at the tap.</summary>
+        private void FinishVoiceCreate()
         {
-            if (s == VoiceState.Listening) ShowToast("Listening...");
-            RefreshVoice();
-        }
+            flow = Flow.Idle;
+            RefreshHint();
+            RefreshSystemList();
 
-        private void HandlePartial(string text)
-        {
-            partialText = text;
-            RefreshVoice();
-        }
+            var added = new List<RemoteTodo>();
+            foreach (var t in systemTodos) if (!knownBeforeTap.Contains(t.timestamp)) added.Add(t);
 
-        private void HandleResult(string text)
-        {
-            partialText = "";
-            recognised.Insert(0, text);
-            if (recognised.Count > MaxRecognisedShown) recognised.RemoveAt(recognised.Count - 1);
-            ShowToast("Todo added");
-            RefreshVoice();
-        }
+            if (added.Count == 0)
+            {
+                ShowToast("No todo created");
+                return;
+            }
 
-        private void HandleError(string reason)
-        {
-            partialText = "";
-            ShowToast(reason);
-            RefreshVoice();
+            foreach (var t in added) Debug.Log($"[VoiceTest] New system todo {t.timestamp}: \"{t.text}\"");
+            // List is oldest first, so the newest added item is the last one: select it and show it.
+            var newest = added[added.Count - 1];
+            selected = systemTodos.IndexOf(newest);
+            RefreshList();
+            // Feedback toast (top zone, hides after toastSeconds); text cut to fit one line.
+            ShowToast("Added: " + Shorten(newest.text, ToastMaxChars));
         }
 
         // ------------------------------------------------------------------ view
@@ -212,6 +231,8 @@ namespace RayneoIdle.Todo
         private void RefreshSystemList()
         {
             systemTodos = SystemTodoClient.GetUnfinished();
+            // Oldest first: number 1 = oldest, highest number = most recently added.
+            systemTodos.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
             selected = Mathf.Clamp(selected, 0, Mathf.Max(0, systemTodos.Count - 1));
             RefreshList();
         }
@@ -223,66 +244,67 @@ namespace RayneoIdle.Todo
             if (kb != null)
             {
                 if (kb.spaceKey.wasPressedThisFrame) HandleTap();
-                if (kb.escapeKey.wasPressedThisFrame) HandleDoubleTap();
                 if (kb.backspaceKey.wasPressedThisFrame) HandleTripleTap();
-                if (kb.rightArrowKey.wasPressedThisFrame) HandleSwipe(+1);
-                if (kb.leftArrowKey.wasPressedThisFrame) HandleSwipe(-1);
+                if (kb.downArrowKey.wasPressedThisFrame) HandleSwipe(+1);
+                if (kb.upArrowKey.wasPressedThisFrame) HandleSwipe(-1);
             }
 #endif
-            if (toastText.text.Length > 0 && Time.unscaledTime > toastHideTime) toastText.text = "";
-
-            // ~5 Hz refresh for the mic level bar, saves power vs. every frame.
-            if (Time.unscaledTime < nextRefresh) return;
-            nextRefresh = Time.unscaledTime + 0.2f;
-            if (voice.State == VoiceState.Listening) RefreshVoice();
-        }
-
-        private void RefreshVoice()
-        {
-            var sb = new System.Text.StringBuilder();
-            switch (voice.State)
+            // Trigger: tapped, StartVoiceCreate returned true, but focus was never lost within
+            // systemOpenTimeoutSeconds -> the system screen did not open (e.g. notes app in a bad state).
+            if (flow == Flow.OpeningSystemScreen && Time.unscaledTime > openDeadline)
             {
-                case VoiceState.Idle:
-                    sb.Append("<size=20>MY TODOS (voice)</size>\n");
-                    if (recognised.Count == 0) sb.Append("<size=20>Tap and say a todo</size>");
-                    for (int i = 0; i < recognised.Count; i++)
-                        sb.Append(i == 0 ? $"<color={CyanHex}>{recognised[i]}</color>" : recognised[i]).Append('\n');
-                    break;
-                case VoiceState.WaitingPermission:
-                    sb.Append("Allow microphone access");
-                    break;
-                case VoiceState.Starting:
-                    sb.Append("Starting mic...");
-                    break;
-                case VoiceState.Listening:
-                    // Mic level bar: onRmsChanged is roughly -2..10 dB -> 0..10 bars.
-                    int bars = Mathf.Clamp(Mathf.RoundToInt((voice.Rms + 2f) / 12f * 10f), 0, 10);
-                    sb.Append($"<color={CyanHex}>LISTENING  {new string('|', bars)}</color>\n");
-                    sb.Append(string.IsNullOrEmpty(partialText) ? "..." : partialText);
-                    break;
-                case VoiceState.Processing:
-                    sb.Append($"<color={CyanHex}>RECOGNISING...</color>\n").Append(partialText);
-                    break;
+                flow = Flow.Idle;
+                ShowToast("System To-do did not open");
+                RefreshHint();
             }
-            voiceText.text = sb.ToString().TrimEnd();
 
-            hintText.text = voice.State == VoiceState.Idle
-                ? "Tap: talk   Swipe: select   3x tap: done"
-                : "Tap: stop   2x tap: cancel";
+            if (toastText.text.Length > 0 && Time.unscaledTime > toastHideTime) toastText.text = "";
         }
 
+        private void RefreshHint()
+        {
+            hintText.text = flow != Flow.Idle
+                ? "Opening voice input..."
+                : "Tap: add by voice   Swipe up/down: select   3x tap: done";
+        }
+
+        /// <summary>
+        /// Numbered rows (number = position in the whole list, so it stays meaningful while scrolling).
+        /// Selected row: cyan 2 px frame + cyan text + ">" marker. Others: plain green.
+        /// Header: count / position, plus up / down arrows when rows are hidden above / below.
+        /// </summary>
         private void RefreshList()
         {
-            var sb = new System.Text.StringBuilder($"<color={PurpleHex}>SYSTEM TO-DO ({systemTodos.Count})</color>\n");
-            if (systemTodos.Count == 0) sb.Append("<size=18>empty or not reachable</size>");
-            // Scroll window keeps the selection visible.
-            int start = Mathf.Clamp(selected - MaxSystemShown + 1, 0, Mathf.Max(0, systemTodos.Count - MaxSystemShown));
-            for (int i = start; i < Mathf.Min(systemTodos.Count, start + MaxSystemShown); i++)
+            int count = systemTodos.Count;
+            // Scroll window: stays still while the selection moves inside it, shifts by one row when the
+            // selection would leave it (no jumping).
+            if (selected < scrollStart) scrollStart = selected;
+            if (selected >= scrollStart + MaxSystemShown) scrollStart = selected - MaxSystemShown + 1;
+            scrollStart = Mathf.Clamp(scrollStart, 0, Mathf.Max(0, count - MaxSystemShown));
+            int start = scrollStart;
+            int end = Mathf.Min(count, start + MaxSystemShown);
+
+            string header = count == 0
+                ? "SYSTEM TO-DO  <size=18>empty or not reachable</size>"
+                : $"SYSTEM TO-DO  {selected + 1}/{count}";
+            if (start > 0) header += "  ▲";
+            if (end < count) header += "  ▼";
+            listHeaderText.text = $"<color={PurpleHex}>{header}</color>";
+
+            for (int r = 0; r < rows.Length; r++)
             {
-                string t = Shorten(systemTodos[i].text, 30);
-                sb.Append(i == selected ? $"<color={CyanHex}>[ {t} ]</color>" : t).Append('\n');
+                int i = start + r;
+                var row = rows[r];
+                bool visible = i < end;
+                row.root.SetActive(visible);
+                if (!visible) continue;
+
+                bool isSelected = i == selected;
+                string marker = isSelected ? ">" : " ";
+                row.text.text = $"{marker} {i + 1}   {Shorten(systemTodos[i].text, RowMaxChars)}";
+                row.text.color = isSelected ? Cyan : Green;
+                row.frame.SetActive(isSelected);
             }
-            listText.text = sb.ToString().TrimEnd();
         }
 
         private void ShowToast(string msg)
@@ -324,16 +346,69 @@ namespace RayneoIdle.Todo
             // top zone = toasts
             toastText = CreateText(canvasRt, "ToastText", ToastFontSize, Cyan, TextAnchor.UpperCenter,
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -MarginPx), new Vector2(innerWidth, 32f));
-            // center, upper half = voice text / recognised todos
-            voiceText = CreateText(canvasRt, "VoiceText", VoiceFontSize, Green, TextAnchor.LowerCenter,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(innerWidth, 150f));
-            // center, lower half = system To-do list
-            listText = CreateText(canvasRt, "SystemListText", ListFontSize, Green, TextAnchor.UpperCenter,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(innerWidth, 140f));
+            // center zone = system To-do list: header + MaxSystemShown row "buttons"
+            listHeaderText = CreateText(canvasRt, "SystemListHeader", ListFontSize, Green, TextAnchor.UpperCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, ListTopPx), new Vector2(innerWidth, ListHeaderPx));
+            rows = new ListRow[MaxSystemShown];
+            for (int r = 0; r < rows.Length; r++)
+            {
+                float y = ListTopPx - ListHeaderPx - RowGapPx - r * (RowHeightPx + RowGapPx);
+                rows[r] = CreateRow(canvasRt, r, y);
+            }
             // bottom zone = hints
             hintText = CreateText(canvasRt, "HintText", HintFontSize, Green, TextAnchor.LowerCenter,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, MarginPx), new Vector2(innerWidth, 26f));
-            RefreshVoice();
+            RefreshHint();
+        }
+
+        /// <summary>Row = left-aligned text + a frame of four 2 px cyan lines (outline only, no fill).</summary>
+        private static ListRow CreateRow(RectTransform parent, int index, float topY)
+        {
+            var root = new GameObject($"Row{index}", typeof(RectTransform));
+            root.layer = parent.gameObject.layer;
+            var rt = (RectTransform)root.transform;
+            rt.SetParent(parent, false);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, topY);
+            rt.sizeDelta = new Vector2(RowWidthPx, RowHeightPx);
+
+            var text = CreateText(rt, "Text", ListFontSize, Green, TextAnchor.MiddleLeft,
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(RowPaddingPx, 0f),
+                new Vector2(RowWidthPx - 2 * RowPaddingPx, RowHeightPx));
+            text.horizontalOverflow = HorizontalWrapMode.Overflow; // one line; Shorten() limits the length
+
+            var frame = new GameObject("Frame", typeof(RectTransform));
+            frame.layer = root.layer;
+            var frt = (RectTransform)frame.transform;
+            frt.SetParent(rt, false);
+            frt.anchorMin = Vector2.zero;
+            frt.anchorMax = Vector2.one;
+            frt.offsetMin = frt.offsetMax = Vector2.zero;
+            CreateLine(frt, "Top", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, FrameLinePx));
+            CreateLine(frt, "Bottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, FrameLinePx));
+            CreateLine(frt, "Left", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(FrameLinePx, 0f));
+            CreateLine(frt, "Right", new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(FrameLinePx, 0f));
+            frame.SetActive(false);
+
+            return new ListRow { root = root, text = text, frame = frame };
+        }
+
+        // Stretched along one edge of the parent; size = line thickness on the other axis.
+        private static void CreateLine(RectTransform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.pivot = new Vector2(anchorMin.x == anchorMax.x ? anchorMin.x : 0.5f, anchorMin.y == anchorMax.y ? anchorMin.y : 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = size;
+            var img = go.AddComponent<Image>(); // no sprite = solid quad
+            img.color = Cyan;
+            img.raycastTarget = false;
         }
 
         private static Text CreateText(RectTransform parent, string name, int fontSize, Color color, TextAnchor align,
