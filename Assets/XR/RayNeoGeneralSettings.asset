@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: RayNeoGeneralSettings
   m_EditorClassIdentifier: 
   touchConfigs:
-  - platformType: 0
+  - platformType: 4096
     MulitTapSpacing: 0.4
     LongPressSpacing: 0.8
     MovingThreshold: 10
@@ -91,6 +91,17 @@ MonoBehaviour:
     SwipXStepTriggerDistance: 200
     SwipYStepTriggerDistance: 100
   - platformType: 0
+    MulitTapSpacing: 0.4
+    LongPressSpacing: 0.8
+    MovingThreshold: 10
+    MovingUpDownThreshold: 32
+    SwipeEndThreshold: 100
+    FastSwipeEndThreshold: 480
+    ReleaseSimpleTapImmediately: 0
+    ReleaseLastTapOnChangeToMove: 1
+    SwipXStepTriggerDistance: 200
+    SwipYStepTriggerDistance: 100
+  - platformType: 4097
     MulitTapSpacing: 0.4
     LongPressSpacing: 0.8
     MovingThreshold: 10
@@ -138,6 +149,11 @@ MonoBehaviour:
     FOV: 22.4
   - DeviceName: X2
     type: 4096
+    Width: 640
+    Height: 480
+    FOV: 16.67944
+  - DeviceName: X3
+    type: 4097
     Width: 640
     Height: 480
     FOV: 16.67944
