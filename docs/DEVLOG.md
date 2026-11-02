@@ -27,6 +27,47 @@ Entry template:
 
 ---
 
+## 2026-11-01 - Yaxin - Yaxin-Mu-Anchor/Voice-Detect (design docs only, no code)
+**Done**
+- GDD (Google Doc, English + Chinese versions kept in sync) moved to v0.8. New tabs in both:
+  "MVP Scope" (GDD section 9 draft) and "Economy Draft". Tab 1 updated with the agreed MVP decisions.
+- MVP scope (9.1-9.7): 10-minute demo from a fresh install, 13-step demo path with device acceptance
+  criteria, scope table, decisions D1-D10, work breakdown W1-W11, milestones M0-M4, risks R1-R11.
+- Economy first draft: full design (sections 1-7) plus MVP subset (section 8) and open questions (9).
+  Workbook `Economy_Draft.xlsx` (params sheet drives every other sheet; 19 full + 22 MVP checks pass).
+  Kept outside the repo for now; moving to Google Sheets.
+
+**Decisions** (what + why)
+- D1 core loop = GDD loop (todo -> coins, cards from chests). Cards show directly when a chest/pack opens,
+  no mosaic/blur/tile reveal; collection shows silhouettes (>= 2 px outline, black is invisible) until owned.
+- D2 SLAM on for the whole MVP session; power/heat deferred (gameplay first, re-check before release).
+- D3 zone tag lives in the todo text: in-game todos are renamed to `(Zone)-text` via provider `todoEdit`,
+  so the system To-do app shows it and Reset/reinstall keeps it. No prefix = General.
+- D4 only app close / system kill is a real exit (settle toast on next Start); any pause is the same
+  session and is credited silently. Offline cap 24 h, no minimum away time, coins stored as double.
+- D5 onboarding never requires voice (no-network fallback: pick an existing todo).
+- D6 first card set = 9 cards, 3 per rarity (3x3 gallery). Only 8 artworks exist, 1 more needed.
+- D7 Pomodoro = toolbar icon only in MVP. D8 UI integration path still open.
+- D9 all game time goes through one injectable `IGameClock` (UTC elapsed, clock set back = 0).
+  Demo Mode multiplies income only (1x / 60x / 1800x, character animation 1x / 2x / 3x) and never changes time.
+- D10 Reset in Settings (second confirmation) for the demo; SaveSystem stores per slot, slot UI is v2.
+- MVP economy: To-do 320, Coin Rate 250 x 1.21^(L-1) (20 levels), chest slots 73/22/5, rarity 60/30/10,
+  Special pity 25 draws, tutorial chest 500 coins + 1 Common + 1 pack. Reason: To-do is the only utility
+  source left, one Coin Rate level must stay affordable every day of week 1, collection completes ~day 7.
+
+**Open issues / blockers**
+- D8: compare Devanshi's Canvas clarity with our HUD on device before choosing.
+- D3 depends on provider `todoEdit`, reverse-engineered and not tested on device.
+- 9th card artwork (R11). Tutorial chest vs the 3 island chest slots needs confirming with W3.
+- MVP 9.2b acceptance still points to the Timeline sheet; the economy draft's QA reference table
+  (passive income + chest finds only) is the right check.
+
+**Next**
+- [ ] Finish the Google Sheets move of the economy workbook; link it from both GDDs.
+- [ ] Test `todoEdit` on device with adb (unblocks D3).
+- [ ] Device-test Canvas vs HUD clarity (unblocks D8).
+- [ ] Ask Devanshi for the 9th artwork.
+
 ## 2026-10-19 - Yaxin - Yaxin-Mu-Anchor/Voice-Detect
 **Done**
 - Plan B feature launcher (`Assets/Scripts/Launcher/FeatureLauncher.cs`, scene `Assets/Scenes/Test-Launcher.unity`,
