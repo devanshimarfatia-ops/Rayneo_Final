@@ -35,9 +35,24 @@ Entry template:
   criteria, scope table, decisions D1-D10, work breakdown W1-W11, milestones M0-M4, risks R1-R11.
 - Economy first draft: full design (sections 1-7) plus MVP subset (section 8) and open questions (9).
   Workbook `Economy_Draft.xlsx` (params sheet drives every other sheet; 19 full + 22 MVP checks pass).
-  Kept outside the repo for now; moving to Google Sheets.
+  Kept outside the repo; a Google Sheet copy is now kept in sync with it (link in the working-folder notes).
+- GDD tab 1 review pass: TO VERIFY items split into "verified on device" (To-do create/complete sync,
+  voice handoff outside SLAM), a D4 rule, and what is still open. Many TO CONFIRM items resolved as
+  full-game design (see decisions below). Economy draft tabs updated to match.
 
 **Decisions** (what + why)
+- GDD tab 1 describes the whole game, not the MVP; MVP cuts live only in the MVP Scope tab.
+- Pomodoro is an independent tool: not tied to anchors or zones, keeps running when leaving a zone.
+  Default 45 min work / 15 min break, pause and skip allowed. Skip = end the work segment early.
+  Below 30% of the work time a prompt warns there is no reward; from 30% the reward is pro rata to focus
+  time (24 coins per focus minute, 1,080 for a full 45 min), so short sessions cannot be farmed.
+- Chests: three chest areas on the island, one per chest; a chest spawns at a random spot in its area.
+  While searching only a dashed outline with "?" shows the area; the chest drops in when found.
+- One island only. Island themes, pets (follow the character) and skin colors are shop skins, no stat effect.
+- Out of scope: ambient events, desk objects, room building, plants. Later option: break-time puzzles.
+- No cloud sync by default. Collection reference (Kingdom Two Crowns) is the silhouette-to-detail unlock.
+- Economy tables are edited as Google Sheets with formulas; for now the local xlsx is the source and is
+  re-imported into the Sheet (File > Import > Replace spreadsheet) after each change.
 - D1 core loop = GDD loop (todo -> coins, cards from chests). Cards show directly when a chest/pack opens,
   no mosaic/blur/tile reveal; collection shows silhouettes (>= 2 px outline, black is invisible) until owned.
 - D2 SLAM on for the whole MVP session; power/heat deferred (gameplay first, re-check before release).
@@ -63,8 +78,10 @@ Entry template:
   (passive income + chest finds only) is the right check.
 
 **Next**
-- [ ] Finish the Google Sheets move of the economy workbook; link it from both GDDs.
-- [ ] Test `todoEdit` on device with adb (unblocks D3).
+- [x] Move the economy workbook to a Google Sheet (verified: no errors, values and all checks match the xlsx).
+- [ ] Link the economy Sheet from the Economy Draft tab in both GDDs.
+- [ ] GDD section 7: drop "(MVP)" from the visual style line; decide whether "map unlock visuals" stays.
+- [ ] Test `todoEdit` on device with adb (unblocks D3); also `startTodo` in SLAM mode and launcher QUIT / double tap.
 - [ ] Device-test Canvas vs HUD clarity (unblocks D8).
 - [ ] Ask Devanshi for the 9th artwork.
 
