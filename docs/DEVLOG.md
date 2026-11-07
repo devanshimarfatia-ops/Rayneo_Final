@@ -27,6 +27,60 @@ Entry template:
 
 ---
 
+## 2026-11-07 - Yaxin - Yaxin-Mu/Prototype (prototype phase: full MVP loop, 4 device test rounds)
+**Done**
+- Core in plain C# (no SDK): `Idle/` IdleCore + `IGameClock` + IdleConfig (MVP economy values), `Cards/`,
+  `Island/IslandMap`, `Save/` (JSON per slot, temp file + .bak), `Game/GameSession` (launch settle, silent
+  resume settle, 30 s autosave), DemoMode (1x/60x/1800x, own slot), `Todo/ZoneTag` + `ZoneTodoService`
+  (zone prefix, one-time +320 reward), `Input/InputAdapter` (touchpad + keyboard, handler stack). Covers W1-W9.
+- UI built in code (`UI/`): head-locked HUD (coins, zone todos, toasts, 6-tool toolbar, progress row),
+  body-following line-art treasure map (`TreasureMapView`), panels Anchors / To-do / Collection / Profile /
+  Settings, chest `RewardWindow`, `StartScreen` (offline earnings + Start), pixel art in `PixelSprites`,
+  `CardArt`, `CharacterArt`.
+- W11 onboarding (`Onboarding/OnboardingController`): intro card, gesture steps, anchor 1 (place + name),
+  To-do, map, tutorial chest, pack, Collection, end card; framed hints "TUTORIAL k/12" + toolbar pointer; skip.
+- Shop: Collection "Buy a pack" (3,000). Profile: Skills (Coin Rate), Look (4 outfits, 6 colors), Pets (4),
+  free items + coin unlocks (`Profile/ProfileSystem`); the pet follows the explorer on the map.
+- Device scene `Assets/Scenes/Game.unity` (built by `Editor/GameSceneBuilder`), first in Build Settings.
+  `AnchorZoneBootstrap.withDebugUi` OFF = game mode.
+- Tooling (Editor, trigger files in `Temp/`): smoke test (22 checks), onboarding test (23 checks), HUD
+  snapshots at the 30 deg view, refresh/compile without focusing Unity, APK build (`Editor/DeviceBuild`).
+- APK `../Build/RayneoIdle_Prototype.apk`; device logs streamed to `../Build/device_log_*.txt` during tests.
+- 28 commits, each compiled on its own; branch pushed. Iteration log with screenshots: shared doc
+  "Prototype Iteration Log (2026-11-07)" (link in the working-folder notes); screenshots archived in
+  `../Screenshots/2026-11-07/`.
+
+**Decisions** (what + why)
+- D8: code-built HUD with own pixel art, following the RayNeo spec. All tasks are Yaxin's; no Canvas merge.
+- Palette: RayNeo official colors (cyan #4DE2FF, green #44FF66, gray-cyan #7FA8B8); the first muted
+  parchment palette was rejected on device ("strange"). Rarity uses the GDD colors (silver / gold / purple).
+- Island = flat treasure map that follows the body (55 deg right, ~8 deg below the eyes, recenters after
+  1.5 s facing a new direction); no Map tool, an arrow says "look right". Device feedback: fixed map felt bad.
+- 18 cards per rarity (54). Economy values were NOT re-tuned for it yet.
+- Anchors are 3 named slots (presets + voice rename via a temporary To-do item); renaming rewrites the
+  slot's todo prefixes with `todoEdit`.
+- Offline earnings window shows 5 decimals (D4 said 10; Yaxin: shorter). Logs keep 10.
+- Shop prices are placeholders: pack 3,000; outfits 0/0/1,000/2,500; colors 0/0/500/800/1,200/2,000;
+  pets 1,500/1,500/3,000/5,000.
+- Every launch shows offline earnings (if a save existed) then Start; onboarding begins after Start.
+
+**Device findings** (also copied to DEVICE_FINDINGS.md)
+- `todoEdit` works from our app; `startTodo` works while the app runs in SLAM mode and returns by itself.
+- One temple swipe fires 2 step events, usually < 40 ms apart, sometimes > 120 ms.
+- With the screen dozing the app does not start rendering; `adb shell input keyevent KEYCODE_WAKEUP` fixes it.
+
+**Open issues / blockers**
+- Economy sheet: re-tune for 54 cards (D6), add shop/cosmetic prices, fix pity "75" -> "78".
+- GDD (EN + ZH) not yet updated for D3/D4/D6/D8, palette, shop, Profile, Start screen.
+- Not tested on device: anchor persistence across sessions, voice rename (`deleteTodo`), shop / Look / Pets.
+- No PR to `main` yet.
+
+**Next**
+- [ ] Monday 11/9 playtest: recruit testers, playtest script + feedback form, run it, summarize.
+- [ ] Device-test shop, Look, Pets, voice rename; anchor persistence (start elsewhere, walk back).
+- [ ] Update economy sheet + both GDDs with today's decisions.
+- [ ] Open a PR from `Yaxin-Mu/Prototype` to `main`.
+
 ## 2026-11-01 - Yaxin - Yaxin-Mu-Anchor/Voice-Detect (design docs only, no code)
 **Done**
 - GDD (Google Doc, English + Chinese versions kept in sync) moved to v0.8. New tabs in both:
@@ -81,8 +135,8 @@ Entry template:
 - [x] Move the economy workbook to a Google Sheet (verified: no errors, values and all checks match the xlsx).
 - [ ] Link the economy Sheet from the Economy Draft tab in both GDDs.
 - [ ] GDD section 7: drop "(MVP)" from the visual style line; decide whether "map unlock visuals" stays.
-- [ ] Test `todoEdit` on device with adb (unblocks D3); also `startTodo` in SLAM mode and launcher QUIT / double tap.
-- [ ] Device-test Canvas vs HUD clarity (unblocks D8).
+- [x] Test `todoEdit` on device (works, D3 confirmed) and `startTodo` in SLAM mode (works) - 2026-11-07. Launcher QUIT / double tap still untested.
+- [x] D8 decided without the Canvas comparison: code-built HUD, own pixel art (2026-11-07).
 - [ ] Ask Devanshi for the 9th artwork.
 
 ## 2026-10-19 - Yaxin - Yaxin-Mu-Anchor/Voice-Detect
@@ -124,7 +178,7 @@ Entry template:
 **Next**
 - [ ] Device-test `Test-Launcher`: bottom layout, QUIT, double tap back, Todo voice flow in SLAM mode.
 - [ ] Run AnchorZone device tests 1-4 (accuracy, drift, persistence, power) and log results.
-- [ ] Agree with Devanshi how her Canvas buttons call our features (Plan A) before merging.
+- [x] ~~Agree with Devanshi how her Canvas buttons call our features~~ - moot: D8 = code-built HUD (2026-11-07).
 
 ## 2026-10-18 - Yaxin - Yaxin-Mu-Anchor/Voice-Detect
 **Done**

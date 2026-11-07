@@ -4,6 +4,9 @@
 1. The scene needs the RayNeo `XR Plugin` prefab (camera rig).
 2. Add an empty GameObject and put **AnchorZoneBootstrap** on it. That is all.
    All tuning (radii, dwell time, swipe direction, SLAM debug fallback) is on this component.
+3. `withDebugUi` ON (test scenes) builds the anchor menu input, debug HUD and markers. OFF (the game scene
+   `Game.unity`) builds only SLAM + store + detector + ModeManager; the game's Anchors panel and onboarding
+   place anchors with `ZoneAnchorStore.SetSlot` (one anchor per slot = ZoneType).
 
 ## Files
 | File | Role |

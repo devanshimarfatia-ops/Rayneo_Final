@@ -44,6 +44,9 @@ May change with any firmware update.
   todo and returns to our app by itself. Detect the new item by re-reading `getTodoUnfinished` on focus
   and diffing timestamps. Needs network. The system app's own spoken prompt can end up in the
   transcript ("Please describe what to do in a single sentence. ...") when audio plays from the speaker.
+- (2026-11-07) **`todoEdit` works from a 3rd-party app**: the game rewrites "(Zone)-text" prefixes (D3); the system
+  To-do app shows the new text. **`startTodo` also works while the app runs in SLAM mode**: the voice screen
+  opens, returns by itself, SLAM keeps tracking and anchors stay valid.
 - Item JSON: `{ "timestamp": long, "updateTimestamp": long, "text": string, "finished": bool }`; key = `timestamp`.
 - adb check: `adb shell content call --uri content://com.rayneo.notes.TodoContentProvider --method getTodoUnfinished`
 
@@ -61,6 +64,9 @@ May change with any firmware update.
 - adb path: `D:/UnityHub/Editor/2022.3.36f1/Editor/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe`
 - Project log tags: `[ZoneDetector]`, `[SlamSession]`, `[ModeManager]`, `[SystemTodo]`, `[VoiceTest]`.
 - Touchpad taps can be simulated for testing: `adb shell input tap 320 240` fires `OnSimpleTap`.
+- (2026-11-07) If the glasses screen is dozing, a launched app sits before rendering (only RayNeoXR / IL2CPP init
+  lines). `adb shell input keyevent KEYCODE_WAKEUP` wakes it and the app continues.
+- (2026-11-07) For device tests stream the log to the PC: `adb logcat -v time -s Unity:I > device_log.txt`.
 - Device logcat ring buffer is only 64 KiB and the touchpad SDK logs every swipe step, so app logs
   scroll away within seconds: read `adb logcat` right after the action, or filter on the PC side.
 
@@ -70,10 +76,12 @@ May change with any firmware update.
 - (2026-10-19) Horizontal swipe: a physical FORWARD swipe fires `OnSwipeRight`, back fires `OnSwipeLeft`
   (the ARDK maps `LEFT_SWIPE_STEP` -> `OnSwipeRight`). No system setting for swipe direction exists in the ARDK.
   Project convention (forward = left / previous) is in `Assets/Scripts/Common/SwipeMap.cs`.
+- (2026-11-07) One swipe on the temple fires 2 step events, usually < 40 ms apart but sometimes > 120 ms;
+  `InputAdapter.swipeRepeatGuardSeconds` = 0.18 s keeps it to one move.
 
 ## Open questions (to test)
-- Does the SLAM origin reset per app session? (AnchorZone test 3)
+- Does the SLAM origin reset per app session? (AnchorZone test 3) Note 2026-11-07: an anchor placed near the
+  start point is always "entered" on the next launch, which proves nothing; start elsewhere and walk back.
 - How much does the pose drift over 10+ minutes? (test 2)
 - Battery / heat cost of continuous SLAM over 20 min? (test 4)
-- Does `startTodo` still work when the app runs in SLAM / 6DoF mode, and does SLAM recover after
-  the system screen took over? (combine with AnchorZone)
+- Does `deleteTodo` work from our app? (used by the anchor voice rename, not checked on device yet)
