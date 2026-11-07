@@ -47,7 +47,7 @@ namespace RayneoIdle.GameInput
         [SerializeField] private bool invertHorizontalSwipe;
 
         [Tooltip("Ignore a second action that arrives within this many seconds (touchpad step bursts).")]
-        [SerializeField] private float swipeRepeatGuardSeconds = 0.12f;
+        [SerializeField] private float swipeRepeatGuardSeconds = 0.18f; // device log: one swipe fires 2 steps, sometimes > 120 ms apart
 
         [SerializeField] private bool logActions = true;
 
