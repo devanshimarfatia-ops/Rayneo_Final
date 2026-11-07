@@ -123,6 +123,9 @@ namespace RayneoIdle.Island
             if (State.searchArea != before) OnSearchAreaChanged?.Invoke(State.searchArea);
         }
 
+        /// <summary>A random area without a chest, or -1 (onboarding uses it for the tutorial search).</summary>
+        public int PickFreeArea() => RandomFreeArea();
+
         private int RandomFreeArea()
         {
             var free = new List<int>();
@@ -142,10 +145,11 @@ namespace RayneoIdle.Island
         }
 
         /// <summary>Onboarding: drop the tutorial chest into a free area. Returns the area or -1.</summary>
-        public int PlaceTutorialChest()
+        public int PlaceTutorialChest(int preferredArea = -1)
         {
             foreach (var s in State.spots) if (s.hasChest && s.isTutorial) return State.spots.IndexOf(s);
-            int area = State.searchArea >= 0 ? State.searchArea : RandomFreeArea();
+            int area = preferredArea >= 0 && preferredArea < State.spots.Count && !State.spots[preferredArea].hasChest ? preferredArea
+                     : State.searchArea >= 0 ? State.searchArea : RandomFreeArea();
             if (area < 0) return -1;
             Place(area, tutorial: true);
             UpdateSearchArea();

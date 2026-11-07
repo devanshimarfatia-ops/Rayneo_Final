@@ -53,8 +53,11 @@ namespace RayneoIdle.Idle
         // ---------- Tutorial chest (onboarding only, fixed contents) ----------
         public double tutorialChestCoins = 500;
 
-        /// <summary>Game seconds the tutorial chest search takes (fixed onboarding delay, not 5 h).</summary>
-        public double tutorialChestSearchSeconds = 20;
+        /// <summary>
+        /// Real seconds the tutorial chest search takes (fixed onboarding delay, not the 5 h discovery time,
+        /// not affected by Demo Mode). 10 s keeps demo steps 7-8 within about one minute.
+        /// </summary>
+        public double tutorialChestSearchSeconds = 10;
 
         // ---------- Cards ----------
         /// <summary>Cards in one blind pack.</summary>

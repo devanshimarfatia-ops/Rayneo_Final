@@ -49,9 +49,16 @@ namespace RayneoIdle.UI
         private static readonly Vector2 IslandCenter = new Vector2(70, 50);
         private static readonly Vector2 IslandRadius = new Vector2(46, 32);
         /// <summary>Normalized chest-area coordinates (IslandMap.Areas) map into this texel box (inside the coast).</summary>
-        private static readonly Rect AreaBox = new Rect(30, 24, 80, 52);
+        private static readonly Rect AreaBox = new Rect(34, 25, 72, 42); // shrunk so the highest chest (10 texels) stays inside the coast
 
         public bool InView { get; private set; }
+
+        /// <summary>Onboarding tutorial search: area shown as searched (-1 = none). Set by OnboardingController.</summary>
+        public int TutorialSearchArea { get; set; } = -1;
+        /// <summary>Onboarding tutorial search progress 0..1 for the status bar (-1 = off, use the island search).</summary>
+        public float TutorialSearch01 { get; set; } = -1f;
+
+        private int ShownSearchArea => session.Island.State.searchArea >= 0 ? session.Island.State.searchArea : TutorialSearchArea;
 
         private Transform head;
         private GameSession session;
@@ -255,6 +262,8 @@ namespace RayneoIdle.UI
         {
             if (area >= 0 && area < dropStart.Count) dropStart[area] = Time.unscaledTime;
             RefreshChests();
+            // Trigger: a chest drops while the map is in view and nothing is focused -> focus it (shows "Tap to open").
+            if (InView && focusArea < 0) focusArea = area;
         }
 
         private void RefreshChests()
@@ -307,14 +316,16 @@ namespace RayneoIdle.UI
             }
 
             bool blinkOn = Mathf.Repeat(Time.unscaledTime, blinkSeconds * 2) < blinkSeconds;
-            for (int i = 0; i < areaOutlines.Count; i++) areaOutlines[i].enabled = i == st.searchArea && blinkOn;
+            int shownArea = ShownSearchArea;
+            for (int i = 0; i < areaOutlines.Count; i++) areaOutlines[i].enabled = i == shownArea && blinkOn;
 
             bool showFocus = InView && focusArea >= 0 && focusArea < st.spots.Count && st.spots[focusArea].hasChest;
             focusBrackets.enabled = showFocus;
             if (showFocus)
             {
-                var p = SpotTexel(st.spots[focusArea]);
-                focusBrackets.rectTransform.anchoredPosition = new Vector2(Mathf.Round(p.x), Mathf.Round(p.y) - 2) * PxPerTexel;
+                // Follow the chest image (also while it is still dropping in), 2 texels below its base.
+                focusBrackets.rectTransform.anchoredPosition =
+                    chestImages[focusArea].rectTransform.anchoredPosition - new Vector2(0, 2 * PxPerTexel);
             }
         }
 
@@ -322,13 +333,14 @@ namespace RayneoIdle.UI
         {
             var st = session.Island.State;
             float speed = walkTexelsPerSecond * (float)session.Core.AnimationSpeed;
-            bool searching = st.searchArea >= 0;
+            int area = ShownSearchArea;
+            bool searching = area >= 0;
 
             if (Time.unscaledTime >= explorerPauseUntil && Vector2.Distance(explorerPos, explorerTarget) < 0.5f)
             {
                 if (searching)
                 {
-                    var r = AreaTexelRect(session.Island.Areas[st.searchArea]);
+                    var r = AreaTexelRect(session.Island.Areas[area]);
                     explorerTarget = new Vector2(Random.Range(r.xMin + 3, r.xMax - 7), Random.Range(r.yMin + 2, r.yMax - 10));
                     explorerPauseUntil = Time.unscaledTime + 0.6f / (float)session.Core.AnimationSpeed;
                 }
@@ -348,16 +360,18 @@ namespace RayneoIdle.UI
         private void UpdateStatus()
         {
             var core = session.Core;
-            float progress = (float)core.ChestProgress01;
+            bool tutorial = TutorialSearch01 >= 0;
+            float progress = tutorial ? TutorialSearch01 : (float)core.ChestProgress01;
             string text;
-            if (!core.State.chestSearchActive) text = "Map ready";
+            if (tutorial) text = $"Searching  {Mathf.FloorToInt(progress * 100)}%";
+            else if (!core.State.chestSearchActive) text = "Map ready";
             else if (core.ChestSlotsFull) text = "Chests full - open one";
             else text = $"Searching  {Mathf.FloorToInt(progress * 100)}%";
             if (InView && focusArea >= 0) text = "Tap to open";
             statusText.text = text;
 
             float inner = BarWidthPx - 2 * PxPerTexel;
-            float w = core.ChestSlotsFull ? inner : Mathf.Round(progress * inner / PxPerTexel) * PxPerTexel;
+            float w = core.ChestSlotsFull && !tutorial ? inner : Mathf.Round(progress * inner / PxPerTexel) * PxPerTexel;
             barFill.rectTransform.sizeDelta = new Vector2(w, BarHeightPx - 2 * PxPerTexel);
         }
 
