@@ -21,6 +21,11 @@ namespace RayneoIdle.UI
 
         public PanelBase Current { get; private set; }
 
+        /// <summary>When set (onboarding), the panel's own bottom hint is hidden.</summary>
+        public string HintOverride { get; set; }
+
+        public bool AnyOpen => Current != null && Current.IsOpen;
+
         private void Start()
         {
             hud = FindObjectOfType<MainHud>();
@@ -65,7 +70,8 @@ namespace RayneoIdle.UI
             if (open && map != null && map.InView) { Current.Close(); open = false; }
             if (open) Current.Tick();
             hud.SetPanelMode(open);
-            hintText.text = open ? Current.Hint : "";
+            // Onboarding shows its own hint card in this line while a panel is open.
+            hintText.text = open && string.IsNullOrEmpty(HintOverride) ? Current.Hint : "";
         }
     }
 }
