@@ -72,6 +72,7 @@ namespace RayneoIdle.EditorTools
             go.AddComponent<GameInput.InputAdapter>();
             go.AddComponent<UI.TreasureMapView>();
             go.AddComponent<UI.MainHud>();
+            go.AddComponent<UI.PanelHost>();
             go.AddComponent<UI.HudSnapshot>();
             Debug.Log($"{LogTag} starting HUD snapshot");
             EditorApplication.EnterPlaymode();

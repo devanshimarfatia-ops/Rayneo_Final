@@ -63,7 +63,43 @@ namespace RayneoIdle.UI
             yield return null;
             Capture(cam, "hud_map_open");
 
+            // Panels (forward view). Input goes through InputAdapter like the touchpad would.
             head.rotation = Quaternion.identity;
+            demo.SetTier(0);
+            yield return null;
+            var host = FindObjectOfType<PanelHost>();
+            var input = GameInput.InputAdapter.Instance;
+            if (host != null && input != null)
+            {
+                var todos = FindObjectOfType<Todo.ZoneTodoService>();
+                if (todos != null) { todos.SetZone(Todo.TodoZone.Work); todos.StartVoiceCreate(); }
+                host.Open(MainHud.ToolId.Todo);
+                input.Send(GameInput.GameAction.Down);
+                yield return null; yield return null;
+                Capture(cam, "panel_todo");
+                host.Current.Close();
+
+                // Make sure there are cards and a pack: open the tutorial chest if it is still on the map.
+                for (int i = 0; i < session.Island.State.spots.Count; i++)
+                    if (session.Island.State.spots[i].isTutorial) session.Island.OpenAt(i);
+                host.Open(MainHud.ToolId.Collection);
+                input.Send(GameInput.GameAction.Next);
+                yield return null; yield return null;
+                Capture(cam, "panel_collection");
+                host.Get<CollectionPanel>().OpenPackForTest();
+                yield return null;
+                Capture(cam, "panel_pack");
+                host.Current.Close();
+
+                host.Open(MainHud.ToolId.Settings);
+                input.Send(GameInput.GameAction.Down);
+                input.Send(GameInput.GameAction.Confirm);
+                input.Send(GameInput.GameAction.Confirm);
+                yield return null; yield return null;
+                Capture(cam, "panel_settings");
+                host.Current.Close();
+            }
+
             demo.SetActive(false);
             Debug.Log($"{LogTag} DONE");
             Finish();
