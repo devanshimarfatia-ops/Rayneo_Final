@@ -60,6 +60,15 @@ namespace RayneoIdle.Zones
             return true;
         }
 
+        /// <summary>Removes every anchor (game Reset, D10).</summary>
+        public void ClearAll()
+        {
+            anchors.Clear();
+            Save();
+            OnAnchorsChanged?.Invoke();
+            Debug.Log("[ZoneAnchorStore] All anchors cleared");
+        }
+
         private void Save()
         {
             try
