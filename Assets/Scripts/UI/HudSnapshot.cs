@@ -34,6 +34,19 @@ namespace RayneoIdle.UI
             }
             cam.fieldOfView = UiFactory.VerticalFovDeg();
 
+            // Launch flow: offline earnings window (the main slot has a save) -> Start screen -> game.
+            var launchHost = FindObjectOfType<PanelHost>();
+            if (launchHost != null && launchHost.StartScreen != null && launchHost.StartScreen.IsOpen)
+            {
+                yield return null;
+                Capture(cam, "start_settle");
+                GameInput.InputAdapter.Instance.Send(GameInput.GameAction.Confirm);
+                yield return new WaitForSecondsRealtime(0.3f);
+                Capture(cam, "start_button");
+                GameInput.InputAdapter.Instance.Send(GameInput.GameAction.Confirm);
+                yield return null; yield return null;
+            }
+
             // Scripted state in the demo slot (never touches the real save).
             demo.SetActive(true);
             session.ResetSlot();
@@ -61,7 +74,8 @@ namespace RayneoIdle.UI
 
             map.OpenFocused();
             yield return null;
-            Capture(cam, "hud_map_open");
+            yield return new WaitForSecondsRealtime(1.2f); // rewards appear one by one
+            Capture(cam, "reward_chest");
 
             // Panels (forward view). Input goes through InputAdapter like the touchpad would.
             head.rotation = Quaternion.identity;
@@ -82,10 +96,17 @@ namespace RayneoIdle.UI
                 // Make sure there are cards and a pack: open the tutorial chest if it is still on the map.
                 for (int i = 0; i < session.Island.State.spots.Count; i++)
                     if (session.Island.State.spots[i].isTutorial) session.Island.OpenAt(i);
+                yield return new WaitForSecondsRealtime(1.2f);
+                host.Rewards.OpenNextPackForTest();
+                yield return new WaitForSecondsRealtime(0.2f);
+                Capture(cam, "reward_pack");
                 host.Open(MainHud.ToolId.Collection);
                 input.Send(GameInput.GameAction.Next);
                 yield return null; yield return null;
                 Capture(cam, "panel_collection");
+                host.Get<CollectionPanel>().ShowPageForTest(1);
+                yield return null;
+                Capture(cam, "panel_collection_page");
                 host.Get<CollectionPanel>().OpenPackForTest();
                 yield return null;
                 Capture(cam, "panel_pack");
@@ -97,6 +118,25 @@ namespace RayneoIdle.UI
                 input.Send(GameInput.GameAction.Confirm);
                 yield return null; yield return null;
                 Capture(cam, "panel_settings");
+                host.Current.Close();
+
+                host.Open(MainHud.ToolId.Anchors);
+                yield return null; yield return null;
+                Capture(cam, "panel_anchors");
+                input.Send(GameInput.GameAction.Confirm);
+                yield return null; yield return null;
+                Capture(cam, "panel_anchor_slot");
+                host.Current.Close();
+
+                host.Open(MainHud.ToolId.Profile);
+                yield return null; yield return null;
+                Capture(cam, "panel_profile");
+                host.Get<ProfilePanel>().ShowSectionForTest(1);
+                yield return null;
+                Capture(cam, "panel_profile_look");
+                host.Get<ProfilePanel>().ShowSectionForTest(2);
+                yield return null;
+                Capture(cam, "panel_profile_pets");
                 host.Current.Close();
             }
 

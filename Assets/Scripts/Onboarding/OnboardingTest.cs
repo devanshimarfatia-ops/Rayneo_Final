@@ -41,28 +41,43 @@ namespace RayneoIdle.Onboarding
             }
             cam.fieldOfView = UiFactory.VerticalFovDeg();
 
-            // Fresh demo slot -> onboarding restarts at Welcome.
+            // Launch flow: offline earnings window (if a save existed) + Start screen; tutorial waits for Start.
+            Check("launch shows the Start screen", host.StartScreen != null && host.StartScreen.IsOpen && !ob.Active);
+            for (int i = 0; i < 3 && host.StartScreen.IsOpen; i++) yield return Send(GameAction.Confirm);
+            Check("Start pressed: game begins", !host.StartScreen.IsOpen && host.StartScreen.Started);
+
+            // Fresh demo slot -> onboarding restarts at Welcome (intro card).
             demo.SetActive(true);
             session.ResetSlot();
             yield return null;
-            Check("fresh save starts at Welcome", ob.Step == OnboardingStep.Welcome, ob.Step.ToString());
+            Check("fresh save starts at Welcome with the intro card", ob.Step == OnboardingStep.Welcome && ob.CardShown, ob.Step.ToString());
             yield return Frames(3);
             Shot("ob_1_welcome");
 
             yield return Send(GameAction.Confirm);
-            Check("tap -> Tap step", ob.Step == OnboardingStep.Tap);
+            Check("tap -> Tap step, card gone", ob.Step == OnboardingStep.Tap && !ob.CardShown);
+            Shot("ob_1b_tap");
             yield return Send(GameAction.Confirm);
             Check("tap -> Swipe step", ob.Step == OnboardingStep.Swipe);
             yield return Send(GameAction.Next);
             Check("swipe -> DoubleTap step", ob.Step == OnboardingStep.DoubleTap);
             yield return Send(GameAction.Back);
-            Check("double tap -> SetAnchor step", ob.Step == OnboardingStep.SetAnchor);
+            Check("double tap -> SetAnchor: Anchors panel on slot 1", ob.Step == OnboardingStep.SetAnchor
+                && host.Current is AnchorPanel ap && ap.InSlotView && host.AnyOpen);
+            yield return Frames(2);
             Shot("ob_2_anchor");
 
-            yield return Send(GameAction.Confirm);
-            Check("anchor -> Todo step, panel open", ob.Step == OnboardingStep.Todo && host.Current is TodoPanel && host.AnyOpen);
+            // No anchor system in this test scene: Place reports "not available", closing the panel continues.
+            yield return Send(GameAction.Confirm);   // Place anchor here
+            yield return Send(GameAction.Back);      // slot -> boxes
+            yield return Send(GameAction.Back);      // close
             yield return Frames(2);
-            Shot("ob_3_todo");
+            Check("anchor panel closed -> Todo step, panel NOT auto-opened", ob.Step == OnboardingStep.Todo && !host.AnyOpen
+                && FindObjectOfType<MainHud>().FocusedTool == MainHud.ToolId.Todo);
+            Shot("ob_3_todo_pointer");
+            yield return Send(GameAction.Confirm);   // open To-do from the toolbar
+            Check("tap opens To-do", host.Current is TodoPanel && host.AnyOpen);
+            Shot("ob_3b_todo");
 
             double before = session.Core.State.coins;
             yield return Send(GameAction.Down);      // focus the first todo
@@ -87,25 +102,31 @@ namespace RayneoIdle.Onboarding
             Shot("ob_6_chest");
 
             yield return Send(GameAction.Confirm);
-            Check("open tutorial chest -> OpenCollection", ob.Step == OnboardingStep.OpenCollection
-                && session.Data.tutorialChestOpened && session.Cards.State.unopenedPacks == 1);
+            Check("open tutorial chest -> OpenPack, reward window open", ob.Step == OnboardingStep.OpenPack
+                && session.Data.tutorialChestOpened && session.Cards.State.unopenedPacks == 1 && host.Current is RewardWindow && host.AnyOpen);
+            yield return new WaitForSecondsRealtime(1.5f);   // rewards appear one by one
+            Shot("ob_7_rewards");
+            yield return Send(GameAction.Confirm);          // tap the pack: open it in the window
+            Check("pack opened in the window -> OpenCollection", ob.Step == OnboardingStep.OpenCollection
+                && session.Cards.State.unopenedPacks == 0 && host.AnyOpen);
+            yield return new WaitForSecondsRealtime(2.5f);
+            Shot("ob_8_pack");
+            yield return Send(GameAction.Confirm);          // close the window
+            Check("reward window closed by tap", !host.AnyOpen);
 
             head.rotation = Quaternion.identity;
             yield return Frames(3);
-            yield return Send(GameAction.Confirm);   // toolbar is focused on Collection
-            Check("collection opens -> OpenPack", ob.Step == OnboardingStep.OpenPack && host.Current is CollectionPanel);
-            Shot("ob_7_collection");
-            yield return Send(GameAction.Down);
-            yield return Send(GameAction.Down);
-            yield return Send(GameAction.Down);      // grid row 3 -> "Open pack"
-            yield return Send(GameAction.Confirm);
-            Check("pack opened -> BrowseCollection", ob.Step == OnboardingStep.BrowseCollection && session.Cards.State.unopenedPacks == 0);
-            Shot("ob_8_pack");
-            yield return Send(GameAction.Back);      // leave the reveal view
-            yield return Send(GameAction.Back);      // close the collection
+            yield return Send(GameAction.Confirm);          // toolbar is focused on Collection
+            Check("collection opens -> BrowseCollection", ob.Step == OnboardingStep.BrowseCollection && host.Current is CollectionPanel);
+            Shot("ob_9_collection");
+            yield return Send(GameAction.Back);             // close the collection
             yield return Frames(2);
             Check("onboarding done, search started", !ob.Active && session.Data.onboardingDone && session.Core.State.chestSearchActive);
-            Shot("ob_9_done");
+            Check("end card shown", ob.CardShown, ob.CurrentHint);
+            yield return Frames(2);
+            Shot("ob_10_end");
+            yield return Send(GameAction.Confirm);
+            Check("tap closes the end card", !ob.CardShown);
 
             // Skip path: reset, skip at once, tutorial chest must stay on the map (not granted).
             session.ResetSlot();
