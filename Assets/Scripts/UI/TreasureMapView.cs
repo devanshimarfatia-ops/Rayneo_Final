@@ -412,7 +412,9 @@ namespace RayneoIdle.UI
             var items = new List<string>();
             foreach (var s in r.slots)
             {
-                if (s.kind == ChestSlotKind.Card && s.cards[0].isNew) items.Add($"NEW {s.cards[0].card.displayName}");
+                // Card names in their rarity color (GDD: silver-gray / gold / purple).
+                if (s.kind == ChestSlotKind.Card && s.cards[0].isNew)
+                    items.Add($"<color={CardArt.RarityHex(s.cards[0].card.rarity)}>NEW {s.cards[0].card.displayName}</color>");
                 if (s.kind == ChestSlotKind.Pack) items.Add("Card pack");
             }
             var sb = new StringBuilder();
