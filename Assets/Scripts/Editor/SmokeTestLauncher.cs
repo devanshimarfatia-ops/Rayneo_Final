@@ -14,6 +14,8 @@ namespace RayneoIdle.EditorTools
     /// in the project folder (polled once per second while the Editor is idle; lets scripts start a run).
     /// The open scene must be saved first (it is replaced by a temporary scene, and reopened at the end).
     /// Results: "[SmokeTest]" lines in the Console / Editor.log; summary also in Temp/smoke-test.result.
+    /// Also: Temp/hud-snapshot.request renders HUD screenshots (UI/HudSnapshot), and
+    /// Temp/refresh.request runs AssetDatabase.Refresh (re-import + compile without focusing the Editor).
     /// </summary>
     [InitializeOnLoad]
     public static class SmokeTestLauncher
@@ -21,6 +23,7 @@ namespace RayneoIdle.EditorTools
         private const string LogTag = "[SmokeTest]";
         private const string RequestFile = "Temp/smoke-test.request";
         private const string ResultFile = "Temp/smoke-test.result";
+        private const string RefreshRequestFile = "Temp/refresh.request";
 
         // SessionState survives the domain reload of entering / leaving Play mode.
         private const string KeyState = "RayneoIdle.SmokeTest.State";
@@ -44,6 +47,58 @@ namespace RayneoIdle.EditorTools
         [MenuItem("Tools/RayneoIdle/Run Smoke Test")]
         private static void MenuRun() => Begin();
 
+        [MenuItem("Tools/RayneoIdle/HUD Snapshot")]
+        private static void MenuSnapshot() => BeginSnapshot();
+
+        // HUD snapshot: one Play session that renders Temp/hud_*.png (see UI/HudSnapshot).
+        private const string SnapshotRequestFile = "Temp/hud-snapshot.request";
+        private const string SnapshotResultFile = "Temp/hud-snapshot.result";
+        private const int Snapshot = 4;
+
+        private static void BeginSnapshot()
+        {
+            if (!CanStart()) return;
+            if (File.Exists(SnapshotResultFile)) File.Delete(SnapshotResultFile);
+            SessionState.SetString(KeyPrevScene, SceneManager.GetActiveScene().path);
+            State = Snapshot;
+
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var headGo = new GameObject("Head", typeof(Camera));
+            headGo.tag = "MainCamera";
+            var go = new GameObject("HudSnapshot");
+            go.AddComponent<GameSession>();
+            go.AddComponent<DemoMode>();
+            go.AddComponent<ZoneTodoService>();
+            go.AddComponent<GameInput.InputAdapter>();
+            go.AddComponent<UI.TreasureMapView>();
+            go.AddComponent<UI.MainHud>();
+            go.AddComponent<UI.HudSnapshot>();
+            Debug.Log($"{LogTag} starting HUD snapshot");
+            EditorApplication.EnterPlaymode();
+        }
+
+        private static bool CanStart()
+        {
+            if (State != Idle || EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning($"{LogTag} already running or in Play mode");
+                return false;
+            }
+            if (SceneManager.GetActiveScene().isDirty)
+            {
+                Debug.LogError($"{LogTag} the open scene has unsaved changes, save it and run again");
+                return false;
+            }
+            return true;
+        }
+
+        private static void RestoreScene()
+        {
+            string prev = SessionState.GetString(KeyPrevScene, "");
+            if (!string.IsNullOrEmpty(prev)) EditorSceneManager.OpenScene(prev, OpenSceneMode.Single);
+            else EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+        }
+
         private static int State
         {
             get => SessionState.GetInt(KeyState, Idle);
@@ -56,10 +111,24 @@ namespace RayneoIdle.EditorTools
             nextPoll = EditorApplication.timeSinceStartup + 1.0;
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
 
+            // Trigger: Temp/refresh.request -> re-import changed files and recompile, without focusing the Editor.
+            if (File.Exists(RefreshRequestFile))
+            {
+                File.Delete(RefreshRequestFile);
+                Debug.Log($"{LogTag} refresh requested");
+                AssetDatabase.Refresh();
+                return;
+            }
+
             if (State == Idle && File.Exists(RequestFile))
             {
                 File.Delete(RequestFile);
                 Begin();
+            }
+            else if (State == Idle && File.Exists(SnapshotRequestFile))
+            {
+                File.Delete(SnapshotRequestFile);
+                BeginSnapshot();
             }
             else if (State == WaitPhase2 && EditorApplication.timeSinceStartup >= SessionState.GetFloat(KeyNextAt, 0))
             {
@@ -103,7 +172,14 @@ namespace RayneoIdle.EditorTools
         {
             if (change != PlayModeStateChange.EnteredEditMode) return;
 
-            if (State == Phase1)
+            if (State == Snapshot)
+            {
+                State = Idle;
+                File.WriteAllText(SnapshotResultFile, "done");
+                RestoreScene();
+                Debug.Log($"{LogTag} HUD snapshot finished, scene restored");
+            }
+            else if (State == Phase1)
             {
                 State = WaitPhase2;
                 SessionState.SetFloat(KeyNextAt, (float)EditorApplication.timeSinceStartup + RelaunchDelaySeconds);
@@ -113,9 +189,7 @@ namespace RayneoIdle.EditorTools
             {
                 State = Idle;
                 File.WriteAllText(ResultFile, "done");
-                string prev = SessionState.GetString(KeyPrevScene, "");
-                if (!string.IsNullOrEmpty(prev)) EditorSceneManager.OpenScene(prev, OpenSceneMode.Single);
-                else EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+                RestoreScene();
                 Debug.Log($"{LogTag} finished, scene restored");
             }
         }
