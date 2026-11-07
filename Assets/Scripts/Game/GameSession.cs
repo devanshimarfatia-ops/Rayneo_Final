@@ -39,6 +39,8 @@ namespace RayneoIdle.Game
         public IdleCore Core { get; private set; }
         public CardSystem Cards { get; private set; }
         public IslandMap Island { get; private set; }
+        /// <summary>Character looks + pet shop (Profile tool).</summary>
+        public RayneoIdle.Profile.ProfileSystem Profile { get; private set; }
         public SaveData Data { get; private set; }
         public int Slot { get; private set; } = SaveSystem.MainSlot;
         public bool IsDemoSlot => Slot == SaveSystem.DemoSlot;
@@ -75,6 +77,7 @@ namespace RayneoIdle.Game
             Core = new IdleCore(config, Data.idle, new SystemGameClock());
             Cards = new CardSystem(Core, CardCatalog.CreateMvp(), Data.cards, random);
             Island = new IslandMap(Core, Cards, Data.island, random);
+            Profile = new RayneoIdle.Profile.ProfileSystem(Core, Data.profile);
         }
 
         private void Start()
@@ -180,6 +183,7 @@ namespace RayneoIdle.Game
             Core.ReplaceState(Data.idle);
             Cards.ReplaceState(Data.cards);
             Island.ReplaceState(Data.island);
+            Profile.ReplaceState(Data.profile);
             Data.cards = Cards.State; // EnsureSize may have kept the same object; keep references in sync
             if (fresh) Core.Settle(SettleReason.Launch); // starts the clock
             Save();

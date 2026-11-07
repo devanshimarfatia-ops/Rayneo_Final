@@ -53,6 +53,9 @@ namespace RayneoIdle.Todo
         public static bool SetFinished(long timestamp) => Call("todoSetFinished", timestamp.ToString(), out _);
         public static bool SetUnfinished(long timestamp) => Call("todoSetUnfinished", timestamp.ToString(), out _);
 
+        /// <summary>Deletes the item (provider method deleteTodo, arg = timestamp). Used to drop the temporary todo of a voice rename.</summary>
+        public static bool Delete(long timestamp) => Call("deleteTodo", timestamp.ToString(), out _);
+
         /// <summary>
         /// Replaces the text of the item with the same timestamp (provider method todoEdit, arg = item JSON).
         /// Used for the zone prefix (D3). Reverse-engineered, NOT verified on device yet.
@@ -150,6 +153,10 @@ namespace RayneoIdle.Todo
                 case "todoSetUnfinished":
                     long ts = long.Parse(arg);
                     foreach (var t in fake) if (t.timestamp == ts) t.finished = method == "todoSetFinished";
+                    return true;
+                case "deleteTodo":
+                    long delTs = long.Parse(arg);
+                    fake.RemoveAll(t => t.timestamp == delTs);
                     return true;
                 case "todoEdit":
                     var editedItem = JsonUtility.FromJson<RemoteTodo>(arg);

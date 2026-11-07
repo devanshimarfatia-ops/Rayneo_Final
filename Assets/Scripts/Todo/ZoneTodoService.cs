@@ -116,6 +116,49 @@ namespace RayneoIdle.Todo
 
         // ------------------------------------------------------------------ list
 
+        /// <summary>Current anchor slot names (save data), or the defaults without a session.</summary>
+        public IReadOnlyList<string> Names =>
+            GameSession.Instance != null && GameSession.Instance.Data.zoneNames != null ? GameSession.Instance.Data.zoneNames : ZoneTag.DefaultNames;
+
+        /// <summary>Name the player gave the zone's anchor slot ("To-do" area header, panel titles).</summary>
+        public string ZoneDisplayName(TodoZone zone)
+        {
+            int slot = ZoneTag.ToSlot(zone);
+            if (slot < 0) return "General";
+            var n = Names;
+            return slot < n.Count && !string.IsNullOrWhiteSpace(n[slot]) ? n[slot] : ZoneTag.DefaultNames[slot];
+        }
+
+        /// <summary>
+        /// Renames an anchor slot and rewrites the "(Name)-" prefix of that slot's open todos with todoEdit,
+        /// so they stay in the zone. Returns the cleaned name that was stored.
+        /// </summary>
+        public string RenameSlot(int slot, string newName)
+        {
+            var session = GameSession.Instance;
+            newName = ZoneTag.Clean(newName);
+            if (session == null || slot < 0 || slot > 2 || string.IsNullOrEmpty(newName)) return null;
+
+            var oldNames = (string[])session.Data.zoneNames.Clone();
+            session.Data.zoneNames[slot] = newName;
+            session.Save();
+
+            var zone = ZoneTag.FromSlot(slot);
+            int retagged = 0;
+            foreach (var t in SystemTodoClient.GetUnfinished())
+            {
+                // Strip the prefix with the OLD names, then add the new one. (Device test 4: formatting with the new
+                // names could not see the old prefix, so renames stacked: "(Work)-(Study)-(Office)-text".)
+                if (ZoneTag.Parse(t.text, oldNames, out string body) != zone) continue;
+                string text = ZoneTag.Format(zone, ZoneTag.StripAllPrefixes(body), session.Data.zoneNames);
+                if (text != t.text && SystemTodoClient.EditText(t, text)) retagged++;
+            }
+            Debug.Log($"{LogTag} slot {slot + 1} renamed to {newName}, {retagged} todos retagged");
+            Refresh();
+            OnZoneChanged?.Invoke(CurrentZone); // names changed: headers redraw
+            return newName;
+        }
+
         /// <summary>Re-reads the system To-do list (blocking binder call, a few ms).</summary>
         public void Refresh()
         {
@@ -128,7 +171,7 @@ namespace RayneoIdle.Todo
             visible.Clear();
             foreach (var t in unfinished)
             {
-                var zone = ZoneTag.Parse(t.text, out string body);
+                var zone = ZoneTag.Parse(t.text, Names, out string body);
                 bool show = zone == CurrentZone || (zone == TodoZone.General && (CurrentZone == TodoZone.General || showGeneralInsideZones));
                 if (show) visible.Add(new ZoneTodo { timestamp = t.timestamp, zone = zone, displayText = body, raw = t });
             }
@@ -170,6 +213,23 @@ namespace RayneoIdle.Todo
             if (focus && voiceSnapshot != null) CompleteVoiceCreate();
         }
 
+        // ------------------------------------------------------------------ voice text capture (anchor rename)
+
+        /// <summary>
+        /// Free speech is not available on X3 Pro (Android SpeechRecognizer is a stub), so a spoken anchor name
+        /// is captured through the system To-do voice flow: a temporary todo is created, its text is returned to
+        /// <paramref name="onText"/> (null when nothing came back), and the todo is deleted again. Needs network.
+        /// </summary>
+        public bool StartVoiceCapture(Action<string> onText)
+        {
+            captureCallback = onText;
+            if (StartVoiceCreate()) return true;
+            captureCallback = null;
+            return false;
+        }
+
+        private Action<string> captureCallback;
+
         private void CompleteVoiceCreate()
         {
             var snapshot = voiceSnapshot;
@@ -179,6 +239,19 @@ namespace RayneoIdle.Todo
             RemoteTodo created = null;
             foreach (var t in now)
                 if (!snapshot.Contains(t.timestamp) && (created == null || t.timestamp > created.timestamp)) created = t;
+
+            // Capture mode: hand the text over and delete the temporary todo (it is not a real task).
+            if (captureCallback != null)
+            {
+                var cb = captureCallback;
+                captureCallback = null;
+                if (created != null && !SystemTodoClient.Delete(created.timestamp))
+                    Debug.LogWarning($"{LogTag} could not delete the temporary todo {created.timestamp}");
+                Debug.Log($"{LogTag} voice capture: {(created != null ? created.text : "(nothing)")}");
+                Refresh();
+                cb(created?.text);
+                return;
+            }
 
             if (created == null)
             {
@@ -191,13 +264,13 @@ namespace RayneoIdle.Todo
 
             if (tagNewTodos && voiceZone != TodoZone.General)
             {
-                string tagged = ZoneTag.Format(voiceZone, created.text);
+                string tagged = ZoneTag.Format(voiceZone, created.text, Names);
                 if (SystemTodoClient.EditText(created, tagged)) created.text = tagged;
                 else Debug.LogWarning($"{LogTag} todoEdit failed, todo stays General: {created.text}");
             }
 
             Refresh();
-            var zone = ZoneTag.Parse(created.text, out string body);
+            var zone = ZoneTag.Parse(created.text, Names, out string body);
             var item = new ZoneTodo { timestamp = created.timestamp, zone = zone, displayText = body, raw = created };
             Debug.Log($"{LogTag} created [{zone}] {body}");
             OnTodoCreated?.Invoke(item);

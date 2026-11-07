@@ -60,6 +60,27 @@ namespace RayneoIdle.Zones
             return true;
         }
 
+        /// <summary>The anchor of a zone slot, or null. The game keeps at most one anchor per ZoneType (slot).</summary>
+        public ZoneAnchorData Get(ZoneType type) => anchors.Find(a => a.zoneType == type);
+
+        /// <summary>Places (or moves) the slot's anchor: replaces any anchor of that type (game Anchors panel).</summary>
+        public ZoneAnchorData SetSlot(ZoneType type, Vector3 position)
+        {
+            anchors.RemoveAll(a => a.zoneType == type);
+            return Add(type, position); // Add saves + notifies
+        }
+
+        /// <summary>Removes the slot's anchor. Returns false if there was none.</summary>
+        public bool RemoveSlot(ZoneType type)
+        {
+            int n = anchors.RemoveAll(a => a.zoneType == type);
+            if (n == 0) return false;
+            Save();
+            OnAnchorsChanged?.Invoke();
+            Debug.Log($"[ZoneAnchorStore] Removed {type} anchor");
+            return true;
+        }
+
         /// <summary>Removes every anchor (game Reset, D10).</summary>
         public void ClearAll()
         {

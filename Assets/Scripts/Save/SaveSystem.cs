@@ -35,6 +35,8 @@ namespace RayneoIdle.Save
             data.cards ??= new Cards.CardCollectionState();
             data.island ??= new Island.IslandState();
             data.rewardedTodoTimestamps ??= new System.Collections.Generic.List<long>();
+            if (data.zoneNames == null || data.zoneNames.Length < 3) data.zoneNames = new[] { "Work", "Bedroom", "Kitchen" };
+            data.profile ??= new Profile.ProfileState();
             return data;
         }
 

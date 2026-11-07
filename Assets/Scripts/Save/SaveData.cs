@@ -29,6 +29,12 @@ namespace RayneoIdle.Save
         /// </summary>
         public System.Collections.Generic.List<long> rewardedTodoTimestamps = new System.Collections.Generic.List<long>();
 
+        /// <summary>Anchor slot names (slot 1..3 = TodoZone Work / Bedroom / Kitchen). Used for the todo prefix (D3).</summary>
+        public string[] zoneNames = { "Work", "Bedroom", "Kitchen" };
+
+        /// <summary>Character looks and pet: equipped + bought (Profile tool).</summary>
+        public Profile.ProfileState profile = new Profile.ProfileState();
+
         // ---------- Onboarding (W11) ----------
         public bool onboardingDone;
         /// <summary>Last onboarding step reached, so a kill mid-onboarding resumes there.</summary>
