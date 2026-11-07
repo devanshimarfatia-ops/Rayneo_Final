@@ -113,6 +113,15 @@ namespace RayneoIdle.Cards
         // =====================================================================
 
         /// <summary>Opens one stored pack: packSize draws. Null if there is no pack.</summary>
+        /// <summary>Shop: pay packPrice for one pack (stored, then usually opened at once). False if too few coins.</summary>
+        public bool BuyPack()
+        {
+            if (!core.TrySpend(Config.packPrice)) return false;
+            State.unopenedPacks++;
+            OnPacksChanged?.Invoke(State.unopenedPacks);
+            return true;
+        }
+
         public List<CardDrawResult> OpenPack()
         {
             if (State.unopenedPacks <= 0) return null;

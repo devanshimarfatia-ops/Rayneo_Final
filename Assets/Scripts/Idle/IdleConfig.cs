@@ -63,6 +63,12 @@ namespace RayneoIdle.Idle
         /// <summary>Cards in one blind pack.</summary>
         public int packSize = 5;
 
+        /// <summary>
+        /// Shop price of one blind pack (full-design value; the MVP draft had no shop, added after device test 4).
+        /// Rule "packs never pay for packs": 5 Special duplicates (1,250) stay below this.
+        /// </summary>
+        public double packPrice = 3000;
+
         /// <summary>Rarity weights: Common / Treasured / Special.</summary>
         public double rarityWeightCommon = 60;
         public double rarityWeightTreasured = 30;

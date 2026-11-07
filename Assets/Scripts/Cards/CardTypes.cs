@@ -32,18 +32,37 @@ namespace RayneoIdle.Cards
 
         public CardCatalog(IReadOnlyList<CardDef> cards) => Cards = cards;
 
-        public static CardCatalog CreateMvp() => new CardCatalog(new[]
+        /// <summary>Cards per rarity (Yaxin 2026-11-07: 18 per rarity, 54 in total; was 3 per rarity in D6).</summary>
+        public const int CardsPerRarity = 18;
+
+        /// <summary>
+        /// The card pool: 18 Common / 18 Treasured / 18 Special. The first 9 entries are the original D6 cards
+        /// (save indices 0..8 must not move); cards 4..18 of each rarity are appended after them.
+        /// The economy (rarity weights, pity, collection pace) was tuned for 9 cards and still needs a redo.
+        /// </summary>
+        public static CardCatalog CreateMvp()
         {
-            new CardDef("common_1", "Common 1", CardRarity.Common),
-            new CardDef("common_2", "Common 2", CardRarity.Common),
-            new CardDef("common_3", "Common 3", CardRarity.Common),
-            new CardDef("treasured_1", "Treasured 1", CardRarity.Treasured),
-            new CardDef("treasured_2", "Treasured 2", CardRarity.Treasured),
-            new CardDef("treasured_3", "Treasured 3", CardRarity.Treasured),
-            new CardDef("special_1", "Special 1", CardRarity.Special),
-            new CardDef("special_2", "Special 2", CardRarity.Special),
-            new CardDef("special_3", "Special 3", CardRarity.Special),
-        });
+            var list = new List<CardDef>();
+            var rarities = new[] { CardRarity.Common, CardRarity.Treasured, CardRarity.Special };
+            foreach (var r in rarities)
+                for (int n = 1; n <= 3; n++) list.Add(Make(r, n));
+            foreach (var r in rarities)
+                for (int n = 4; n <= CardsPerRarity; n++) list.Add(Make(r, n));
+            return new CardCatalog(list);
+        }
+
+        private static CardDef Make(CardRarity r, int n)
+        {
+            string name = r == CardRarity.Common ? "Common" : r == CardRarity.Treasured ? "Treasured" : "Special";
+            return new CardDef($"{name.ToLowerInvariant()}_{n}", $"{name} {n}", r);
+        }
+
+        /// <summary>0-based position of a card inside its rarity (display order, art variant).</summary>
+        public int NumberInRarity(int index)
+        {
+            var list = IndicesOf(Cards[index].rarity);
+            return list.IndexOf(index);
+        }
 
         public int Count => Cards.Count;
 
