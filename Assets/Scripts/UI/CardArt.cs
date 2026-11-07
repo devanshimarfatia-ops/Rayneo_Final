@@ -14,7 +14,7 @@ namespace RayneoIdle.UI
         public const int W = 15, H = 19;
 
         // Rarity colors from the GDD (Common silver-gray, Treasured gold, Special purple). Deliberately clear and
-        // distinct, an exception to the muted parchment palette (Yaxin 2026-11-07). Silver is kept light:
+        // distinct from the RayNeo cyan / green UI palette (Yaxin 2026-11-07). Silver is kept light:
         // the RayNeo spec forbids dark gray. Purple = RayNeo spec purple.
         public static readonly Color32 Common = new Color32(0xD0, 0xD8, 0xE0, 0xFF);    // silver-gray
         public static readonly Color32 Treasured = new Color32(0xFF, 0xC8, 0x3D, 0xFF); // gold
@@ -52,29 +52,37 @@ namespace RayneoIdle.UI
             ".III.", "I...I", "....I", "..II.", "..I..", ".....", "..I..",
         };
 
-        public static Texture2D Face(int cardIndex, CardRarity rarity, bool owned)
+        /// <summary>
+        /// Card face for the card at position <paramref name="number"/> (0-based) inside its rarity.
+        /// 18 cards per rarity = 9 symbols x 2 frame variants (variant 1: double frame). Each rarity starts at a
+        /// different symbol so the first cards keep their old look (shell / compass / crown ...).
+        /// </summary>
+        public static Texture2D Face(int number, CardRarity rarity, bool owned)
         {
+            int cardIndex = ((int)rarity * 3 + number) % Symbols.Length;
+            bool variant = number >= Symbols.Length;
             var pc = new PixelCanvas(W, H);
             pc.Clear();
             if (!owned)
             {
-                pc.RectOutline(0, 0, W, H, Palette.Ink);
+                pc.RectOutline(0, 0, W, H, Palette.Secondary);
                 pc.Sprite(Question, 5, 7);
                 return pc.ToTexture();
             }
 
             var rc = RarityColor(rarity);
             pc.RectOutline(0, 0, W, H, rc);
+            if (variant) pc.RectOutline(1, 1, W - 2, H - 2, rc); // second set of 9: double frame
             // inner corner dots for a framed look
-            pc.Set(2, 2, Palette.Ink); pc.Set(W - 3, 2, Palette.Ink); pc.Set(2, H - 3, Palette.Ink); pc.Set(W - 3, H - 3, Palette.Ink);
+            pc.Set(2, 2, Palette.Secondary); pc.Set(W - 3, 2, Palette.Secondary); pc.Set(2, H - 3, Palette.Secondary); pc.Set(W - 3, H - 3, Palette.Secondary);
 
-            var sym = Symbols[Mathf.Clamp(cardIndex, 0, Symbols.Length - 1)];
+            var sym = Symbols[cardIndex];
             for (int r = 0; r < sym.Length; r++)
             for (int c = 0; c < sym[r].Length; c++)
             {
                 char ch = sym[r][c];
                 if (ch == 'R') pc.Set(3 + c, H - 4 - r, rc);
-                else if (ch == 'S') pc.Set(3 + c, H - 4 - r, Palette.Sand);
+                else if (ch == 'S') pc.Set(3 + c, H - 4 - r, Palette.Main);
             }
 
             // rarity pips: 1 / 2 / 3 dots at the bottom

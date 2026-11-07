@@ -5,17 +5,18 @@ using UnityEngine;
 namespace RayneoIdle.UI
 {
     /// <summary>
-    /// Agreed visual direction (2026-11-07): limited, muted "faded parchment" palette, line art on black.
+    /// Palette (Yaxin 2026-11-07, after the first device test): RayNeo official colors, line art on black.
+    /// Replaces the earlier "faded parchment" palette. Card rarity colors live in CardArt (silver / gold / purple).
     /// On the glasses black = transparent, so everything not drawn is see-through. No large fills (APL / power).
     /// </summary>
     public static class Palette
     {
-        /// <summary>Main lines and text: warm sand.</summary>
-        public static readonly Color32 Sand = new Color32(0xD8, 0xC0, 0x8A, 0xFF);
-        /// <summary>Secondary lines, textures, inactive frames: old ink brown.</summary>
-        public static readonly Color32 Ink = new Color32(0xA8, 0x8A, 0x5C, 0xFF);
-        /// <summary>Highlights: focus, chests, coin count.</summary>
-        public static readonly Color32 Accent = new Color32(0xE8, 0xD4, 0x9A, 0xFF);
+        /// <summary>Main lines and text: RayNeo cyan.</summary>
+        public static readonly Color32 Main = new Color32(0x4D, 0xE2, 0xFF, 0xFF);
+        /// <summary>Secondary lines, textures, dimmed items: gray-cyan (light enough: no dark gray per spec).</summary>
+        public static readonly Color32 Secondary = new Color32(0x7F, 0xA8, 0xB8, 0xFF);
+        /// <summary>Highlights: focus, chests, coin count: RayNeo green (green channel is the cheapest to light).</summary>
+        public static readonly Color32 Accent = new Color32(0x44, 0xFF, 0x66, 0xFF);
         /// <summary>Transparent (= black on the glasses).</summary>
         public static readonly Color32 Clear = new Color32(0, 0, 0, 0);
 
@@ -24,8 +25,8 @@ namespace RayneoIdle.UI
         {
             switch (c)
             {
-                case 'S': return Sand;
-                case 'I': return Ink;
+                case 'S': return Main;      // codes kept from the first palette: S = main, I = secondary
+                case 'I': return Secondary;
                 case 'A': return Accent;
                 default: return Clear;
             }
@@ -129,6 +130,15 @@ namespace RayneoIdle.UI
             tex.SetPixels32(pixels);
             tex.Apply(false);
             return tex;
+        }
+
+        private static readonly Dictionary<string[], Texture2D> spriteCache = new Dictionary<string[], Texture2D>();
+
+        /// <summary>Like FromSprite, but one texture per sprite array (for things redrawn every refresh).</summary>
+        public static Texture2D FromSpriteCached(string[] rows)
+        {
+            if (!spriteCache.TryGetValue(rows, out var t)) spriteCache[rows] = t = FromSprite(rows);
+            return t;
         }
 
         /// <summary>One-shot texture from a sprite (icons, chest, character frames).</summary>

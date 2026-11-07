@@ -26,6 +26,12 @@ namespace RayneoIdle.UI
 
         public bool AnyOpen => Current != null && Current.IsOpen;
 
+        /// <summary>Chest reward window (modal, opened by any chest).</summary>
+        public RewardWindow Rewards { get; private set; }
+
+        /// <summary>Launch modal (offline earnings + Start). Onboarding waits for StartScreen.OnStarted.</summary>
+        public StartScreen StartScreen { get; private set; }
+
         private void Start()
         {
             hud = FindObjectOfType<MainHud>();
@@ -38,12 +44,29 @@ namespace RayneoIdle.UI
             }
             map = FindObjectOfType<TreasureMapView>();
 
+            panels[MainHud.ToolId.Anchors] = new AnchorPanel();
             panels[MainHud.ToolId.Todo] = new TodoPanel();
+            panels[MainHud.ToolId.Profile] = new ProfilePanel();
             panels[MainHud.ToolId.Collection] = new CollectionPanel();
             panels[MainHud.ToolId.Settings] = new SettingsPanel();
             foreach (var p in panels.Values) p.Init(hud.PanelParent, hud, session);
+            // Launch flow: offline earnings window + Start screen, before the game HUD (device test 3).
+            StartScreen = new StartScreen();
+            StartScreen.Init(hud.PanelParent, hud, session);
+            Current = StartScreen;
+            StartScreen.ShowOnLaunch(session.LastLaunchSettle);
 
-            hintText = UiFactory.CreateText(hud.PanelParent, "Panel hint", UiFactory.AuxFont, Palette.Ink, TextAnchor.LowerCenter,
+            Rewards = new RewardWindow();
+            Rewards.Init(hud.PanelParent, hud, session);
+            // Trigger: any chest opened (map tap, tests) -> reward window (replaces the old summary toast).
+            session.Island.OnChestOpened += (_, result) =>
+            {
+                if (Current != null && Current.IsOpen && Current != Rewards) Current.Close();
+                Current = Rewards;
+                Rewards.Show(result);
+            };
+
+            hintText = UiFactory.CreateText(hud.PanelParent, "Panel hint", UiFactory.AuxFont, Palette.Secondary, TextAnchor.LowerCenter,
                 new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, UiFactory.MarginPx), new Vector2(560, 24));
 
             hud.OnToolOpened += Open;
@@ -67,7 +90,8 @@ namespace RayneoIdle.UI
         private void Update()
         {
             bool open = Current != null && Current.IsOpen;
-            if (open && map != null && map.InView) { Current.Close(); open = false; }
+            // Panels close when the user turns to the map; the reward window is opened FROM the map, so it stays.
+            if (open && map != null && map.InView && Current != Rewards && Current != StartScreen) { Current.Close(); open = false; }
             if (open) Current.Tick();
             hud.SetPanelMode(open);
             // Onboarding shows its own hint card in this line while a panel is open.

@@ -30,7 +30,7 @@ namespace RayneoIdle.UI
             todos = Object.FindObjectOfType<ZoneTodoService>();
             title = Title("To-do");
             for (int i = 0; i < VisibleRows; i++) rows.Add(CreateRow(i));
-            emptyText = UiFactory.CreateText(root, "Empty", UiFactory.AuxFont, Palette.Ink, TextAnchor.MiddleLeft,
+            emptyText = UiFactory.CreateText(root, "Empty", UiFactory.AuxFont, Palette.Secondary, TextAnchor.MiddleLeft,
                 new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(Pad + 32, -Pad - 48 - RowHeight * 1.5f), new Vector2(400, RowHeight));
             if (todos != null)
             {
@@ -68,7 +68,7 @@ namespace RayneoIdle.UI
             {
                 int item = scroll + i;
                 if (item >= ItemCount) { rows[i].Hide(); continue; }
-                if (item == 0) rows[i].Set(todos.WaitingForVoice ? "+ Listening..." : "+ New to-do (voice)", focus == 0, Palette.Ink);
+                if (item == 0) rows[i].Set(todos.WaitingForVoice ? "+ Listening..." : "+ New to-do (voice)", focus == 0, Palette.Secondary);
                 else
                 {
                     var t = todos.Visible[item - 1];

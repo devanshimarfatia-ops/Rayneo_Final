@@ -109,8 +109,35 @@ namespace RayneoIdle.UI
             "..AAAA..",
         };
 
-        /// <summary>Arrow pointing right (look right to the map), 6x7.</summary>
-        public static readonly string[] ArrowRight =
+        /// <summary>Blind card pack: two stacked cards with a mark, 12x12.</summary>
+        public static readonly string[] Pack =
+        {
+            "...IIIIIIII.",
+            "...I......I.",
+            "SSSSSSSS..I.",
+            "S......S..I.",
+            "S..AA..S..I.",
+            "S.AAAA.S..I.",
+            "S.AAAA.S..I.",
+            "S..AA..S..I.",
+            "S......SIII.",
+            "S......S....",
+            "SSSSSSSS....",
+            "............",
+        };
+
+        /// <summary>Tutorial pointer: double chevron pointing down, 9x5.</summary>
+        public static readonly string[] ArrowDown =
+        {
+            "AA.....AA",
+            ".AA...AA.",
+            "..AA.AA..",
+            "...AAA...",
+            "....A....",
+        };
+
+        /// <summary>Single chevron, 6x7: focus marker in panel rows.</summary>
+        public static readonly string[] Chevron =
         {
             "..A...",
             "...A..",
@@ -121,69 +148,86 @@ namespace RayneoIdle.UI
             "..A...",
         };
 
-        // Toolbar icons, 12x12 each.
+        /// <summary>Arrow pointing right (look right to the map): double chevron, 9x7.</summary>
+        public static readonly string[] ArrowRight =
+        {
+            "A...A....",
+            ".A...A...",
+            "..A...A..",
+            "...A...A.",
+            "..A...A..",
+            ".A...A...",
+            "A...A....",
+        };
+
+        // Toolbar icons, 12x12 each (first device test: icons must read at a glance, RayNeo-like shapes).
+
+        /// <summary>Anchors: diamond with a filled core.</summary>
+        public static readonly string[] IconAnchor =
+        {
+            ".....SS.....",
+            "....S..S....",
+            "...S....S...",
+            "..S......S..",
+            ".S...AA...S.",
+            "S...AAAA...S",
+            "S...AAAA...S",
+            ".S...AA...S.",
+            "..S......S..",
+            "...S....S...",
+            "....S..S....",
+            ".....SS.....",
+        };
+
+        /// <summary>To-do: notepad with lines and a pen (like the RayNeo To-do app icon).</summary>
         public static readonly string[] IconTodo =
         {
-            "............",
-            ".SSSSSSSSSS.",
-            ".S........S.",
-            ".S......A.S.",
-            ".S.SSS.A..S.",
-            ".S....AA..S.",
-            ".S...A.A..S.",
-            ".S.SSS....S.",
-            ".S........S.",
-            ".S.SSSSSS.S.",
-            ".SSSSSSSSSS.",
-            "............",
-        };
-
-        public static readonly string[] IconMap =
-        {
-            "............",
-            ".SSSSSSSSSS.",
-            ".S...S....S.",
-            ".S...S.A.AS.",
-            ".S...S..A.S.",
-            ".S...S.A.AS.",
-            ".S...S....S.",
-            ".S.II.S...S.",
-            ".S....S...S.",
-            ".S....S...S.",
-            ".SSSSSSSSSS.",
+            ".SSSSSSSS...",
+            ".S......S.AA",
+            ".S.SSSS.SAAA",
+            ".S......AAA.",
+            ".S.SSS.AAA..",
+            ".S....AAA...",
+            ".S.SSAAA....",
+            ".S...AA.S...",
+            ".S...A..S...",
+            ".S......S...",
+            ".SSSSSSSS...",
             "............",
         };
 
-        public static readonly string[] IconCollection =
+        /// <summary>Collection: treasure chest.</summary>
+        public static readonly string[] IconChest =
         {
             "............",
-            "...SSSSSSS..",
-            "...S.....S..",
-            ".SSSSSSS.S..",
-            ".S.....S.S..",
-            ".S..A..S.S..",
-            ".S.AAA.S.S..",
-            ".S..A..S.S..",
-            ".S.....SSS..",
-            ".S.....S....",
-            ".SSSSSSS....",
-            "............",
-        };
-
-        public static readonly string[] IconUpgrade =
-        {
-            "............",
-            ".....AA.....",
-            "....AAAA....",
-            "...AA..AA...",
-            "..AA....AA..",
-            "....S..S....",
-            "....S..S....",
-            "....S..S....",
-            "....S..S....",
             "..SSSSSSSS..",
+            ".S........S.",
+            "S..........S",
+            "SSSSSSSSSSSS",
+            "S....AA....S",
+            "S...A..A...S",
+            "S....AA....S",
+            "S..........S",
+            "SSSSSSSSSSSS",
             "............",
             "............",
+        };
+
+        /// <summary>Profile: character bust (upgrades, later character looks).</summary>
+        public static readonly string[] IconProfile =
+        {
+            "....SSSS....",
+            "...S....S...",
+            "...S....S...",
+            "...S....S...",
+            "....SSSS....",
+            ".....SS.....",
+            "...SSSSSS...",
+            "..S......S..",
+            ".S........S.",
+            ".S...AA...S.",
+            ".S........S.",
+            ".SSSSSSSSSS.",
         };
 
         public static readonly string[] IconPomodoro =

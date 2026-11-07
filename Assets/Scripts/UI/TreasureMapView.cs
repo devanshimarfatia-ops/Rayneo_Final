@@ -11,8 +11,10 @@ using UnityEngine.UI;
 namespace RayneoIdle.UI
 {
     /// <summary>
-    /// W3 visuals: the island as a flat line-art treasure map, world-locked to the RIGHT of the start view
-    /// (the user turns the head to see it). Reads GameSession.Island / Core; never changes rules itself.
+    /// W3 visuals: the island as a flat line-art treasure map that FOLLOWS THE BODY: it stays mapYawDeg to the
+    /// right of the body direction, outside the head-locked HUD, so it is only seen by turning the head.
+    /// Reads GameSession.Island / Core; never changes rules itself. Status + progress are shown by the HUD
+    /// (bottom center), read from StatusText / Progress01 here.
     ///
     /// Triggers:
     /// - Map "in view": angle between head forward and map direction (both flattened) below <see cref="inViewAngleDeg"/>.
@@ -25,14 +27,26 @@ namespace RayneoIdle.UI
     {
         private const string LogTag = "[TreasureMap]";
 
-        [Header("Placement (world-locked)")]
-        [Tooltip("Degrees to the right of the start view where the map is placed.")]
+        [Header("Placement (body-follow)")]
+        [Tooltip("Degrees to the right of the body direction where the map sits.")]
         [SerializeField] private float mapYawDeg = 55f;
-        [Tooltip("Map distance. 2.6 m makes the 600x470 px map cover ~75% of the view, leaving the safety margin " +
-                 "and room for HUD toasts above it (2 m would fill the whole view).")]
-        [SerializeField] private float distanceM = 2.6f;
-        [Tooltip("Height offset from the head at start, meters (negative = lower).")]
-        [SerializeField] private float heightOffsetM = 0f;
+        [Tooltip("Map distance. 2.9 m makes the 600x416 px map cover ~69% of the view: room for the HUD progress " +
+                 "bar + hints below it and toasts above it (2 m would fill the whole view).")]
+        [SerializeField] private float distanceM = 2.9f;
+        [Tooltip("Height offset from the eyes, meters (negative = lower). -0.42 m at 2.9 m = about 8 deg below eye level (device test 2: 3 deg was still too high); follows the CURRENT " +
+                 "eye height (first build used the start height, too high after sitting down).")]
+        [SerializeField] private float heightOffsetM = -0.42f;
+        [Tooltip("Body-follow: the body direction is kept while the head yaw stays within this many degrees to the " +
+                 "LEFT of it (looking right at the map never moves it).")]
+        [SerializeField] private float followLeftDeg = 35f;
+        [Tooltip("Body-follow: ... and this many degrees PAST the map on the right.")]
+        [SerializeField] private float followPastMapDeg = 25f;
+        [Tooltip("Body-follow trigger: the head must stay outside that range this long (s) before the map follows.")]
+        [SerializeField] private float followDelaySeconds = 1.5f;
+        [Tooltip("Body-follow speed once triggered, degrees per second.")]
+        [SerializeField] private float followSpeedDegPerSec = 90f;
+        [Tooltip("Position smoothing toward the walking head (1/s). Higher = tighter.")]
+        [SerializeField] private float positionSmoothing = 6f;
         [Tooltip("Map counts as 'in view' (gets input) below this angle between gaze and map, degrees.")]
         [SerializeField] private float inViewAngleDeg = 20f;
 
@@ -66,8 +80,11 @@ namespace RayneoIdle.UI
         private readonly List<RawImage> chestImages = new List<RawImage>();
         private readonly List<RawImage> areaOutlines = new List<RawImage>();
         private readonly List<float> dropStart = new List<float>();
-        private RawImage explorer, focusBrackets, barFill;
-        private Text statusText;
+        private RawImage explorer, pet, focusBrackets, mapBarFill;
+        private Vector2 petPos = IslandCenter;
+        private bool petFacingLeft;
+        private Text mapStatus;
+        private GameObject[] mapProgressRow;
         private Texture2D chestTex, tutorialTex, explorerA, explorerB;
         private int focusArea = -1;
 
@@ -75,7 +92,17 @@ namespace RayneoIdle.UI
         private float explorerPauseUntil, walkPhase;
         private bool handlerPushed;
 
-        private const float BarWidthPx = 240f, BarHeightPx = 16f;
+        // Body-follow state: the body direction the map hangs off, and since when the head is outside the keep range.
+        private float bodyYaw;
+        private float outsideSince = -1f;
+        private bool following;
+
+        /// <summary>Search status for the HUD progress row ("Searching 42%", "Chests full", "Tap to open").</summary>
+        public string StatusText { get; private set; } = "";
+        /// <summary>Search progress 0..1 for the HUD bar (1 while all chest slots are full).</summary>
+        public float Progress01 { get; private set; }
+        /// <summary>False before the search starts (onboarding not done and no tutorial search): HUD hides the row.</summary>
+        public bool ShowProgress { get; private set; }
 
         private void Start()
         {
@@ -88,7 +115,7 @@ namespace RayneoIdle.UI
                 return;
             }
             Build();
-            PlaceInWorld();
+            Recenter();
 
             var island = session.Island;
             island.OnChestPlaced += HandleChestPlaced;
@@ -111,12 +138,28 @@ namespace RayneoIdle.UI
             var cam = head.GetComponent<Camera>();
             // Scale is fixed at the HUD reference distance (1 canvas px = 1 HUD px at 2 m); placing the map farther
             // away (distanceM) then makes it look smaller: apparent size = 2 m / distanceM.
-            canvasRt = UiFactory.CreateCanvas("Treasure Map Canvas", null, new Vector2(600, 470), ScaleReferenceM, cam);
+            canvasRt = UiFactory.CreateCanvas("Treasure Map Canvas", null, new Vector2(600, 464), ScaleReferenceM, cam);
 
             var mapTex = DrawStaticMap();
             var mapImg = UiFactory.CreatePixelImage(canvasRt, "Map", mapTex, PxPerTexel,
-                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -8));
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -56)); // top 48 px: the map's own progress row
             mapRt = mapImg.rectTransform;
+
+            // Progress row ON the map (device test 4): world-locked with it, so it is there whenever the map is.
+            // Font 26 at 2 / 2.9 scale = ~18 px on the glasses (spec min 16). The HUD row hides while the map is in view.
+            mapStatus = UiFactory.CreateText(canvasRt, "Map status", 26, Palette.Main, TextAnchor.MiddleRight,
+                new Vector2(0.5f, 1f), new Vector2(1f, 0.5f), new Vector2(-12, -26), new Vector2(280, 36));
+            var barPc = new PixelCanvas(60, 7);
+            barPc.Clear();
+            barPc.RectOutline(0, 0, barPc.Width, barPc.Height, Palette.Secondary);
+            UiFactory.CreatePixelImage(canvasRt, "Map bar frame", barPc.ToTexture(), 4f,
+                new Vector2(0.5f, 1f), new Vector2(0f, 0.5f), new Vector2(12, -26));
+            var fillPc = new PixelCanvas(1, 1);
+            fillPc.Set(0, 0, Palette.Main);
+            mapBarFill = UiFactory.CreatePixelImage(canvasRt, "Map bar fill", fillPc.ToTexture(), 1f,
+                new Vector2(0.5f, 1f), new Vector2(0f, 0.5f), new Vector2(12 + 8, -26));
+            mapBarFill.rectTransform.sizeDelta = new Vector2(0, 7 * 4 - 16);
+            mapProgressRow = new[] { mapStatus.gameObject, canvasRt.Find("Map bar frame").gameObject, mapBarFill.gameObject };
 
             chestTex = PixelCanvas.FromSprite(PixelSprites.Chest);
             tutorialTex = PixelCanvas.FromSprite(PixelSprites.TutorialChest);
@@ -143,35 +186,63 @@ namespace RayneoIdle.UI
                 Vector2.zero, new Vector2(0.5f, 0f), Vector2.zero);
             focusBrackets.enabled = false;
 
+            pet = UiFactory.CreatePixelImage(mapRt, "Pet", null, PxPerTexel, Vector2.zero, new Vector2(0.5f, 0f), IslandCenter * PxPerTexel);
+            pet.rectTransform.sizeDelta = new Vector2(6, 5) * PxPerTexel;
+            pet.enabled = false;
             explorer = UiFactory.CreatePixelImage(mapRt, "Explorer", explorerA, PxPerTexel,
                 Vector2.zero, new Vector2(0.5f, 0f), IslandCenter * PxPerTexel);
-
-            // Bottom row: status text (left) + progress bar (right)
-            statusText = UiFactory.CreateText(canvasRt, "Status", UiFactory.AuxFont, Palette.Sand, TextAnchor.MiddleLeft,
-                new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28, 14), new Vector2(300, 32));
-            var frame = new PixelCanvas((int)(BarWidthPx / PxPerTexel), (int)(BarHeightPx / PxPerTexel));
-            frame.RectOutline(0, 0, frame.Width, frame.Height, Palette.Ink);
-            UiFactory.CreatePixelImage(canvasRt, "Bar frame", frame.ToTexture(), PxPerTexel,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-28, 22));
-            var fillPc = new PixelCanvas(1, 1);
-            fillPc.Set(0, 0, Palette.Sand);
-            barFill = UiFactory.CreatePixelImage(canvasRt, "Bar fill", fillPc.ToTexture(), 1f,
-                new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(-28 - BarWidthPx + PxPerTexel, 22 + PxPerTexel));
-            barFill.rectTransform.sizeDelta = new Vector2(0, BarHeightPx - 2 * PxPerTexel);
         }
 
-        private void PlaceInWorld()
+        private float HeadYaw()
         {
-            Vector3 fwd = head.forward;
-            fwd.y = 0;
-            if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward;
-            var dir = Quaternion.Euler(0, mapYawDeg, 0) * fwd.normalized;
-            canvasRt.position = head.position + dir * distanceM + Vector3.up * heightOffsetM;
+            Vector3 f = head.forward;
+            f.y = 0;
+            return f.sqrMagnitude < 1e-6f ? bodyYaw : Quaternion.LookRotation(f).eulerAngles.y;
+        }
+
+        /// <summary>
+        /// Body-follow. The map hangs mapYawDeg to the right of bodyYaw and follows the walking head position.
+        /// Trigger: the head yaw stays outside [bodyYaw - followLeftDeg, bodyYaw + mapYawDeg + followPastMapDeg]
+        /// for followDelaySeconds -> the user faces a new direction -> bodyYaw turns toward the head at
+        /// followSpeedDegPerSec until the head is "forward" again. Looking right at the map never moves it.
+        /// </summary>
+        private void UpdatePlacement(bool snap)
+        {
+            float headYaw = HeadYaw();
+            float delta = Mathf.DeltaAngle(bodyYaw, headYaw);
+            bool outside = delta < -followLeftDeg || delta > mapYawDeg + followPastMapDeg;
+
+            if (outside) { if (outsideSince < 0) outsideSince = Time.unscaledTime; }
+            else if (!following) outsideSince = -1f;
+
+            if (!following && outsideSince >= 0 && Time.unscaledTime - outsideSince >= followDelaySeconds) following = true;
+            if (following)
+            {
+                bodyYaw = Mathf.MoveTowardsAngle(bodyYaw, headYaw, followSpeedDegPerSec * Time.unscaledDeltaTime);
+                if (Mathf.Abs(Mathf.DeltaAngle(bodyYaw, headYaw)) < 2f) { following = false; outsideSince = -1f; }
+            }
+
+            var dir = Quaternion.Euler(0, bodyYaw + mapYawDeg, 0) * Vector3.forward;
+            var target = head.position + dir * distanceM + Vector3.up * heightOffsetM;
+            canvasRt.position = snap ? target
+                : Vector3.Lerp(canvasRt.position, target, 1f - Mathf.Exp(-positionSmoothing * Time.unscaledDeltaTime));
             canvasRt.rotation = Quaternion.LookRotation(dir, Vector3.up); // camera looks along +Z of the canvas
         }
 
-        /// <summary>Move the map back to the right of the current view (e.g. after SLAM drift or recenter).</summary>
-        public void Recenter() => PlaceInWorld();
+        /// <summary>Hide the map visuals (reward window open: a transparent window over the map lines is unreadable).</summary>
+        public void SetHidden(bool hidden)
+        {
+            if (canvasRt != null && canvasRt.gameObject.activeSelf == hidden) canvasRt.gameObject.SetActive(!hidden);
+        }
+
+        /// <summary>Put the map right of the current view at once (start, Settings > Recenter map).</summary>
+        public void Recenter()
+        {
+            bodyYaw = HeadYaw();
+            following = false;
+            outsideSince = -1f;
+            UpdatePlacement(snap: true);
+        }
 
         /// <summary>Direction from the head to the map, flattened (for the HUD "look right" hint).</summary>
         public float SignedAngleFromGaze()
@@ -201,15 +272,15 @@ namespace RayneoIdle.UI
             // Scroll rods (top / bottom) with end knobs, paper edges with small notches.
             foreach (int y in new[] { 1, 94 })
             {
-                pc.RectOutline(3, y, 134, 5, Palette.Sand);
-                pc.RectOutline(0, y - 1, 3, 7, Palette.Ink);
-                pc.RectOutline(137, y - 1, 3, 7, Palette.Ink);
+                pc.RectOutline(3, y, 134, 5, Palette.Main);
+                pc.RectOutline(0, y - 1, 3, 7, Palette.Secondary);
+                pc.RectOutline(137, y - 1, 3, 7, Palette.Secondary);
             }
             for (int y = 7; y <= 92; y++)
             {
                 bool notch = y % 9 == 0;
-                pc.Set(notch ? 9 : 8, y, Palette.Ink);
-                pc.Set(notch ? 130 : 131, y, Palette.Ink);
+                pc.Set(notch ? 9 : 8, y, Palette.Secondary);
+                pc.Set(notch ? 130 : 131, y, Palette.Secondary);
             }
 
             // Coastline: perturbed ellipse, closed polyline.
@@ -221,7 +292,7 @@ namespace RayneoIdle.UI
                 float r = CoastRadius(t);
                 var p = new Vector2Int(Mathf.RoundToInt(IslandCenter.x + IslandRadius.x * r * Mathf.Cos(t)),
                                        Mathf.RoundToInt(IslandCenter.y + IslandRadius.y * r * Mathf.Sin(t)));
-                if (i > 0) pc.Line(prev.x, prev.y, p.x, p.y, Palette.Sand);
+                if (i > 0) pc.Line(prev.x, prev.y, p.x, p.y, Palette.Main);
                 prev = p;
             }
 
@@ -231,7 +302,7 @@ namespace RayneoIdle.UI
             {
                 float nx = (x - IslandCenter.x) / IslandRadius.x, ny = (y - IslandCenter.y) / IslandRadius.y;
                 float d = Mathf.Sqrt(nx * nx + ny * ny);
-                if (d < CoastRadius(Mathf.Atan2(ny, nx)) * 0.88f) pc.Set(x, y, Palette.Ink);
+                if (d < CoastRadius(Mathf.Atan2(ny, nx)) * 0.88f) pc.Set(x, y, Palette.Secondary);
             }
 
             // Sea waves in the corners.
@@ -240,8 +311,8 @@ namespace RayneoIdle.UI
                 pc.Sprite(wave, w.x, w.y);
 
             // Compass (top-right): cross + N.
-            pc.HLine(117, 125, 76, Palette.Ink);
-            pc.VLine(121, 72, 80, Palette.Ink);
+            pc.HLine(117, 125, 76, Palette.Secondary);
+            pc.VLine(121, 72, 80, Palette.Secondary);
             pc.Sprite(new[] { "S..S", "SS.S", "S.SS", "S..S" }, 120, 82);
 
             return pc.ToTexture();
@@ -251,7 +322,7 @@ namespace RayneoIdle.UI
         {
             var pc = new PixelCanvas(w, h);
             pc.Clear();
-            pc.DashedRect(0, 0, w, h, 3, 2, Palette.Ink);
+            pc.DashedRect(0, 0, w, h, 3, 2, Palette.Secondary);
             pc.Sprite(PixelSprites.Question, w / 2 - 2, h / 2 - 3);
             return pc.ToTexture();
         }
@@ -283,6 +354,7 @@ namespace RayneoIdle.UI
         private void Update()
         {
             if (session == null) return;
+            UpdatePlacement(snap: false);
             UpdateInView();
             UpdateChestsAndOutline();
             UpdateExplorer();
@@ -353,8 +425,23 @@ namespace RayneoIdle.UI
                 explorerPos = Vector2.MoveTowards(explorerPos, explorerTarget, speed * Time.unscaledDeltaTime);
                 walkPhase += Time.unscaledDeltaTime * 4f * (float)session.Core.AnimationSpeed;
             }
-            explorer.texture = walking && Mathf.Repeat(walkPhase, 2f) >= 1f ? explorerB : explorerA;
+            // Look from the Profile (outfit + color); frame 1 = legs together while walking.
+            var look = session.Profile.State;
+            explorer.texture = CharacterArt.Character(look, walking && Mathf.Repeat(walkPhase, 2f) >= 1f ? 1 : 0);
             explorer.rectTransform.anchoredPosition = new Vector2(Mathf.Round(explorerPos.x), Mathf.Round(explorerPos.y)) * PxPerTexel;
+
+            // Pet (GDD: follows the character): trails a few texels behind, a bit slower, faces its direction.
+            var petTex = CharacterArt.Pet(look.pet, petFacingLeft);
+            pet.enabled = petTex != null;
+            if (petTex != null)
+            {
+                var target = explorerPos + new Vector2(explorerPos.x >= petPos.x ? -6f : 6f, 0);
+                var step = Vector2.MoveTowards(petPos, target, speed * 0.9f * Time.unscaledDeltaTime) - petPos;
+                if (Mathf.Abs(step.x) > 0.01f) petFacingLeft = step.x < 0;
+                petPos += step;
+                pet.texture = petTex;
+                pet.rectTransform.anchoredPosition = new Vector2(Mathf.Round(petPos.x), Mathf.Round(petPos.y)) * PxPerTexel;
+            }
         }
 
         private void UpdateStatus()
@@ -363,16 +450,20 @@ namespace RayneoIdle.UI
             bool tutorial = TutorialSearch01 >= 0;
             float progress = tutorial ? TutorialSearch01 : (float)core.ChestProgress01;
             string text;
-            if (tutorial) text = $"Searching  {Mathf.FloorToInt(progress * 100)}%";
+            if (tutorial) text = $"Treasure hunt  {Mathf.FloorToInt(progress * 100)}%";
             else if (!core.State.chestSearchActive) text = "Map ready";
             else if (core.ChestSlotsFull) text = "Chests full - open one";
-            else text = $"Searching  {Mathf.FloorToInt(progress * 100)}%";
+            else text = $"Treasure hunt  {Mathf.FloorToInt(progress * 100)}%";
             if (InView && focusArea >= 0) text = "Tap to open";
-            statusText.text = text;
 
-            float inner = BarWidthPx - 2 * PxPerTexel;
-            float w = core.ChestSlotsFull && !tutorial ? inner : Mathf.Round(progress * inner / PxPerTexel) * PxPerTexel;
-            barFill.rectTransform.sizeDelta = new Vector2(w, BarHeightPx - 2 * PxPerTexel);
+            StatusText = text;
+            Progress01 = core.ChestSlotsFull && !tutorial ? 1f : Mathf.Clamp01(progress);
+            ShowProgress = tutorial || core.State.chestSearchActive || (InView && focusArea >= 0);
+
+            foreach (var go in mapProgressRow) if (go.activeSelf != ShowProgress) go.SetActive(ShowProgress);
+            mapStatus.text = StatusText;
+            float inner = 60 * 4 - 16;
+            mapBarFill.rectTransform.sizeDelta = new Vector2(Mathf.Round(Progress01 * inner / 4f) * 4f, 7 * 4 - 16);
         }
 
         // ================================================================ input

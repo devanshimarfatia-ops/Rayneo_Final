@@ -14,7 +14,7 @@ namespace RayneoIdle.UI
     {
         public const string Version = "Prototype 0.1";
 
-        /// <summary>Red only for destructive warnings (RayNeo spec). Muted to sit with the parchment palette.</summary>
+        /// <summary>Red only for destructive warnings (RayNeo spec).</summary>
         private static readonly Color WarningRed = new Color32(0xE8, 0x7A, 0x6A, 0xFF);
 
         private enum Item { Recenter, Reset, DemoSpeed, DemoSkip, Version }
@@ -68,7 +68,7 @@ namespace RayneoIdle.UI
                     case Item.DemoSpeed:
                         rows[i].Set($"Demo speed  {session.Core.DemoMultiplier:0}x", f); break;
                     case Item.DemoSkip: rows[i].Set("Skip 8 hours", f); break;
-                    case Item.Version: rows[i].Set(demo != null && demo.IsActive ? $"{Version}  DEMO" : Version, f, Palette.Ink); break;
+                    case Item.Version: rows[i].Set(demo != null && demo.IsActive ? $"{Version}  DEMO" : Version, f, Palette.Secondary); break;
                 }
             }
         }
