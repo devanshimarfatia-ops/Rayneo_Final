@@ -51,7 +51,7 @@ namespace RayneoIdle.UI
         private GameSession session;
         private DemoMode demo;
         private TreasureMapView map;
-        private RectTransform canvasRt, mainRt;
+        private RectTransform canvasRt, mainRt, toolbarRt;
         private Text coinsText, rateText, toastText, badgeText, labelText, arrowLabel;
         private RawImage arrow;
         private Texture2D frameFocusTex;
@@ -104,6 +104,9 @@ namespace RayneoIdle.UI
             // head-locked and would otherwise draw over the map).
             mainRt = UiFactory.CreateRect(canvasRt, "Main", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero,
                 new Vector2(UiFactory.CanvasWidthPx, UiFactory.CanvasHeightPx));
+            // Toolbar + map arrow: hidden while a panel is open (the panel uses the center and bottom zones).
+            toolbarRt = UiFactory.CreateRect(mainRt, "Toolbar", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero,
+                new Vector2(UiFactory.CanvasWidthPx, UiFactory.CanvasHeightPx));
 
             // top-left: coins
             UiFactory.CreatePixelImage(mainRt, "Coin icon", PixelCanvas.FromSprite(PixelSprites.Coin), 3f,
@@ -122,9 +125,9 @@ namespace RayneoIdle.UI
                 new Vector2(1, 1), new Vector2(1, 1), new Vector2(-m, -m), new Vector2(120, 24));
 
             // right edge: arrow to the map
-            arrow = UiFactory.CreatePixelImage(mainRt, "Map arrow", PixelCanvas.FromSprite(PixelSprites.ArrowRight), 4f,
+            arrow = UiFactory.CreatePixelImage(toolbarRt, "Map arrow", PixelCanvas.FromSprite(PixelSprites.ArrowRight), 4f,
                 new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-m, 0));
-            arrowLabel = UiFactory.CreateText(mainRt, "Map arrow label", UiFactory.AuxFont, Palette.Accent, TextAnchor.MiddleRight,
+            arrowLabel = UiFactory.CreateText(toolbarRt, "Map arrow label", UiFactory.AuxFont, Palette.Accent, TextAnchor.MiddleRight,
                 new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-m - 30, 0), new Vector2(120, 24));
 
             // bottom: toolbar. Unfocused icons: no frame, dimmed. Focused: full brightness + 4 px accent frame.
@@ -144,12 +147,12 @@ namespace RayneoIdle.UI
             for (int i = 0; i < tools.Count; i++)
             {
                 float x = -total / 2 + i * (SlotPx + SlotGapPx);
-                tools[i].frame = UiFactory.CreatePixelImage(mainRt, $"Slot {tools[i].id}", frameFocusTex, IconPxPerTexel,
+                tools[i].frame = UiFactory.CreatePixelImage(toolbarRt, $"Slot {tools[i].id}", frameFocusTex, IconPxPerTexel,
                     new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(x, m));
-                tools[i].image = UiFactory.CreatePixelImage(mainRt, $"Icon {tools[i].id}", PixelCanvas.FromSprite(tools[i].icon), IconPxPerTexel,
+                tools[i].image = UiFactory.CreatePixelImage(toolbarRt, $"Icon {tools[i].id}", PixelCanvas.FromSprite(tools[i].icon), IconPxPerTexel,
                     new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(x + 4, m + 4));
             }
-            labelText = UiFactory.CreateText(mainRt, "Tool label", UiFactory.AuxFont, Palette.Sand, TextAnchor.LowerCenter,
+            labelText = UiFactory.CreateText(toolbarRt, "Tool label", UiFactory.AuxFont, Palette.Sand, TextAnchor.LowerCenter,
                 new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, m + SlotPx + 6), new Vector2(240, 24));
             SetFocus(0);
         }
@@ -262,5 +265,11 @@ namespace RayneoIdle.UI
         }
 
         public void FocusTool(ToolId id) => SetFocus(tools.FindIndex(t => t.id == id));
+
+        /// <summary>Canvas that panels build into (head-locked, 640x480).</summary>
+        public RectTransform PanelParent => canvasRt;
+
+        /// <summary>Panel open: hide toolbar + map arrow (coins and toasts stay).</summary>
+        public void SetPanelMode(bool panelOpen) => toolbarRt.gameObject.SetActive(!panelOpen);
     }
 }
