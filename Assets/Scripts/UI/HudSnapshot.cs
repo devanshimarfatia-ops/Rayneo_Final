@@ -111,7 +111,7 @@ namespace RayneoIdle.UI
             while (Mathf.Repeat(Time.unscaledTime, half * 2) > half * 0.6f) yield return null;
         }
 
-        private static void Capture(Camera cam, string name)
+        public static void Capture(Camera cam, string name)
         {
             var rt = new RenderTexture(Width, Height, 24);
             var prevTarget = cam.targetTexture;

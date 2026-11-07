@@ -55,7 +55,14 @@ namespace RayneoIdle.EditorTools
         private const string SnapshotResultFile = "Temp/hud-snapshot.result";
         private const int Snapshot = 4;
 
-        private static void BeginSnapshot()
+        [MenuItem("Tools/RayneoIdle/Onboarding Test")]
+        private static void MenuOnboarding() => BeginSnapshot(onboarding: true);
+
+        // Onboarding test: same game scene + OnboardingController, driven by Onboarding/OnboardingTest.
+        private const string OnboardingRequestFile = "Temp/onboarding-test.request";
+
+        /// <summary>Builds the full game UI scene (no anchors) and runs HudSnapshot or OnboardingTest.</summary>
+        private static void BeginSnapshot(bool onboarding = false)
         {
             if (!CanStart()) return;
             if (File.Exists(SnapshotResultFile)) File.Delete(SnapshotResultFile);
@@ -65,7 +72,7 @@ namespace RayneoIdle.EditorTools
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var headGo = new GameObject("Head", typeof(Camera));
             headGo.tag = "MainCamera";
-            var go = new GameObject("HudSnapshot");
+            var go = new GameObject(onboarding ? "OnboardingTest" : "HudSnapshot");
             go.AddComponent<GameSession>();
             go.AddComponent<DemoMode>();
             go.AddComponent<ZoneTodoService>();
@@ -73,8 +80,13 @@ namespace RayneoIdle.EditorTools
             go.AddComponent<UI.TreasureMapView>();
             go.AddComponent<UI.MainHud>();
             go.AddComponent<UI.PanelHost>();
-            go.AddComponent<UI.HudSnapshot>();
-            Debug.Log($"{LogTag} starting HUD snapshot");
+            if (onboarding)
+            {
+                go.AddComponent<Onboarding.OnboardingController>();
+                go.AddComponent<Onboarding.OnboardingTest>();
+            }
+            else go.AddComponent<UI.HudSnapshot>();
+            Debug.Log($"{LogTag} starting {(onboarding ? "onboarding test" : "HUD snapshot")}");
             EditorApplication.EnterPlaymode();
         }
 
@@ -130,6 +142,11 @@ namespace RayneoIdle.EditorTools
             {
                 File.Delete(SnapshotRequestFile);
                 BeginSnapshot();
+            }
+            else if (State == Idle && File.Exists(OnboardingRequestFile))
+            {
+                File.Delete(OnboardingRequestFile);
+                BeginSnapshot(onboarding: true); // result file: Temp/hud-snapshot.result
             }
             else if (State == WaitPhase2 && EditorApplication.timeSinceStartup >= SessionState.GetFloat(KeyNextAt, 0))
             {
