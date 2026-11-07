@@ -25,6 +25,12 @@ namespace RayneoIdle.Zones
         [Tooltip("EXIT: farther than this from the current anchor. Keep it larger than Enter Radius.")]
         [SerializeField] private float exitRadius = 2.0f;
 
+        [Header("Mode")]
+        [Tooltip("ON (test scenes): build the anchor menu input, debug HUD and world markers. " +
+                 "OFF (game): only SLAM + store + detector + ModeManager; the game's own HUD, input and " +
+                 "onboarding place anchors through ZoneAnchorStore.")]
+        [SerializeField] private bool withDebugUi = true;
+
         [Header("Input")]
         [Tooltip("Flip if swiping forward on the temple moves the menu selection the wrong way.")]
         [SerializeField] private bool invertSwipe = false;
@@ -75,16 +81,19 @@ namespace RayneoIdle.Zones
             var store = system.AddComponent<ZoneAnchorStore>();
             var detector = system.AddComponent<ZoneDetector>();
             var modes = system.AddComponent<ModeManager>();
-            var input = system.AddComponent<AnchorPlacementInput>();
-            var hud = system.AddComponent<ZoneDebugHUD>();
-            var markers = system.AddComponent<ZoneAnchorMarkers>();
-
             slam.Configure(head, ignoreSlamStatus, maxHeadSpeed, driftRecoverSeconds);
             detector.Configure(store, slam, head, enterRadius, exitRadius, dwellSeconds);
             modes.Configure(detector);
-            input.Configure(store, detector, slam, invertSwipe);
-            hud.Configure(detector, modes, slam, input, store, head, hideGazeDotInMenu); // also builds the HUD canvas
-            markers.Configure(store, slam, head);
+
+            if (withDebugUi)
+            {
+                var input = system.AddComponent<AnchorPlacementInput>();
+                var hud = system.AddComponent<ZoneDebugHUD>();
+                var markers = system.AddComponent<ZoneAnchorMarkers>();
+                input.Configure(store, detector, slam, invertSwipe);
+                hud.Configure(detector, modes, slam, input, store, head, hideGazeDotInMenu); // also builds the HUD canvas
+                markers.Configure(store, slam, head);
+            }
 
             system.SetActive(true);
             Debug.Log($"[AnchorZoneBootstrap] Zone system created (enter {enterRadius} m / {dwellSeconds} s, exit {exitRadius} m)");

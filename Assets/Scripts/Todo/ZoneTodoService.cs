@@ -62,24 +62,32 @@ namespace RayneoIdle.Todo
         private HashSet<long> voiceSnapshot; // timestamps before startTodo; null = not waiting
         private TodoZone voiceZone;
 
-        private void Awake()
-        {
-            if (modeManager == null) modeManager = FindObjectOfType<ModeManager>();
-        }
+        private bool modeBound;
 
         private void OnEnable()
         {
-            if (modeManager != null)
-            {
-                modeManager.OnModeChanged += HandleModeChanged;
-                SetZone(MapMode(modeManager.CurrentMode));
-            }
+            BindModeManager();
             Refresh();
+        }
+
+        // AnchorZoneBootstrap creates the ModeManager in its own Awake; Awake order between objects is not
+        // defined, so try again in Start when it was not there yet in OnEnable.
+        private void Start() => BindModeManager();
+
+        private void BindModeManager()
+        {
+            if (modeBound) return;
+            if (modeManager == null) modeManager = FindObjectOfType<ModeManager>();
+            if (modeManager == null) return;
+            modeManager.OnModeChanged += HandleModeChanged;
+            modeBound = true;
+            if (modeManager.CurrentMode != AppMode.Default) SetZone(MapMode(modeManager.CurrentMode));
         }
 
         private void OnDisable()
         {
-            if (modeManager != null) modeManager.OnModeChanged -= HandleModeChanged;
+            if (modeManager != null && modeBound) modeManager.OnModeChanged -= HandleModeChanged;
+            modeBound = false;
         }
 
         // Trigger: ModeManager confirmed a zone enter / exit.
