@@ -47,8 +47,8 @@ Entry template:
   snapshots at the 30 deg view, refresh/compile without focusing Unity, APK build (`Editor/DeviceBuild`).
 - APK `../Build/RayneoIdle_Prototype.apk`; device logs streamed to `../Build/device_log_*.txt` during tests.
 - 28 commits, each compiled on its own; branch pushed. Iteration log with screenshots: shared doc
-  "Prototype Iteration Log (2026-11-07)" (link in the working-folder notes); screenshots archived in
-  `../Screenshots/2026-11-07/`.
+  "Prototype Iteration Log (2026-11-07)", also copied to Google Docs in Chinese and English with all
+  31 screenshots (links in the working-folder notes); screenshots archived in `../Screenshots/2026-11-07/`.
 
 **Decisions** (what + why)
 - D8: code-built HUD with own pixel art, following the RayNeo spec. All tasks are Yaxin's; no Canvas merge.
