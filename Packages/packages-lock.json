@@ -188,9 +188,9 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.rayneo.openxr": {
-      "version": "file:D:/Study/Capstone-Rayneo/RayNeo OpenXR Unity ARDK/RayNeo OpenXR Unity ARDK",
+      "version": "file:com.unity.xr.rayneo.openxr",
       "depth": 0,
-      "source": "local",
+      "source": "embedded",
       "dependencies": {
         "com.unity.inputsystem": "1.3.0",
         "com.unity.xr.management": "4.2.1",
