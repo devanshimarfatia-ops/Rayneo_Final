@@ -21,7 +21,9 @@ namespace RayneoIdle.Launcher
     ///     EXIT GAME     -> close the app.
     ///
     ///   Input on TITLE / MENU:
-    ///     Swipe fwd/back -> move focus (START LEVEL 1 -> ANCHORS -> TO-DOS -> EXIT)   (Editor: Left / Right)
+    ///     Swipe fwd/back -> move focus along the tile row ANCHORS / TO-DOS / EXIT GAME (Editor: Left / Right)
+    ///     Swipe up       -> from the tile row to START LEVEL 1 (it sits above the row) (Editor: Up)
+    ///     Swipe down     -> from START LEVEL 1 back to the tile row                    (Editor: Down)
     ///     Single tap     -> open the focused item                                     (Editor: Space)
     ///     Double tap     -> MENU: back to TITLE.  TITLE: ignored (left to the system).  (Editor: Escape)
     ///   Inside ANCHORS / TO-DOS / the level:
@@ -76,6 +78,8 @@ namespace RayneoIdle.Launcher
         [SerializeField] private bool keepAnchorRunning = true;
         [Tooltip("Flip if swiping forward on the temple moves the focus the wrong way.")]
         [SerializeField] private bool invertSwipe = false;
+        [Tooltip("Flip if swiping up / down on the temple moves between START LEVEL 1 and the tiles the wrong way.")]
+        [SerializeField] private bool invertVerticalSwipe = false;
         [Tooltip("Swipes closer together than this are ignored, so one swipe = one step.")]
         [SerializeField] private float swipeCooldownSeconds = 0.35f;
         [Tooltip("BACK DEBOUNCE (s): double tap and the Android back key may both arrive for one gesture.")]
@@ -123,6 +127,7 @@ namespace RayneoIdle.Launcher
 
         private View view = View.Title;
         private int focused = ItemAnchor;
+        private int lastRowFocus = ItemAnchor; // tile to return to when swiping down from START LEVEL 1
         private bool levelWasUnlocked;
         private GameObject canvasGo, titlePanel, menuPanel;
         private Tile startTile;
@@ -221,6 +226,9 @@ namespace RayneoIdle.Launcher
             touch.OnDoubleTap.AddListener(HandleDoubleTap);
             touch.OnSwipeRight.AddListener(HandleSwipeRight);
             touch.OnSwipeLeft.AddListener(HandleSwipeLeft);
+            // Vertical per-step swipes (X3 Pro): up / down between START LEVEL 1 and the tile row.
+            touch.OnSwipeUp.AddListener(HandleSwipeUp);
+            touch.OnSwipeDown.AddListener(HandleSwipeDown);
             touchpadBound = true;
         }
 
@@ -232,6 +240,8 @@ namespace RayneoIdle.Launcher
             touch.OnDoubleTap.RemoveListener(HandleDoubleTap);
             touch.OnSwipeRight.RemoveListener(HandleSwipeRight);
             touch.OnSwipeLeft.RemoveListener(HandleSwipeLeft);
+            touch.OnSwipeUp.RemoveListener(HandleSwipeUp);
+            touch.OnSwipeDown.RemoveListener(HandleSwipeDown);
             touchpadBound = false;
         }
 
@@ -244,6 +254,8 @@ namespace RayneoIdle.Launcher
                 if (kb.spaceKey.wasPressedThisFrame) HandleTap();
                 if (kb.rightArrowKey.wasPressedThisFrame) HandleSwipe(+1);
                 if (kb.leftArrowKey.wasPressedThisFrame) HandleSwipe(-1);
+                if (kb.upArrowKey.wasPressedThisFrame) HandleVertical(up: true);
+                if (kb.downArrowKey.wasPressedThisFrame) HandleVertical(up: false);
                 if (kb.escapeKey.wasPressedThisFrame) HandleDoubleTap();
             }
 #else
@@ -322,12 +334,30 @@ namespace RayneoIdle.Launcher
         private void HandleSwipeRight(Vector2 _) => HandleSwipe(SwipeMap.OnSwipeRightStep(invertSwipe));
         private void HandleSwipeLeft(Vector2 _) => HandleSwipe(SwipeMap.OnSwipeLeftStep(invertSwipe));
 
+        // Sideways: along the tile row only (START LEVEL 1 is reached with an up swipe).
         private void HandleSwipe(int dir)
         {
             if (view != View.Menu) return;
             if (Time.unscaledTime - lastSwipeTime < swipeCooldownSeconds) return;
             lastSwipeTime = Time.unscaledTime;
-            focused = Mathf.Clamp(focused + dir, 0, ItemCount - 1);
+            if (focused == ItemLevel) return; // on START LEVEL 1: sideways does nothing, swipe down to the tiles
+            focused = Mathf.Clamp(focused + dir, ItemAnchor, ItemExit);
+            lastRowFocus = focused;
+            RefreshMenu();
+        }
+
+        private void HandleSwipeUp(Vector2 _) => HandleVertical(up: !invertVerticalSwipe);
+        private void HandleSwipeDown(Vector2 _) => HandleVertical(up: invertVerticalSwipe);
+
+        // Up: tile row -> START LEVEL 1. Down: START LEVEL 1 -> the tile it came from.
+        private void HandleVertical(bool up)
+        {
+            if (view != View.Menu) return;
+            if (Time.unscaledTime - lastSwipeTime < swipeCooldownSeconds) return;
+            lastSwipeTime = Time.unscaledTime;
+            if (up && focused != ItemLevel) { lastRowFocus = focused; focused = ItemLevel; }
+            else if (!up && focused == ItemLevel) focused = lastRowFocus;
+            else return;
             RefreshMenu();
         }
 
@@ -512,7 +542,7 @@ namespace RayneoIdle.Launcher
 
             var menuHint = CreateText(menuRt, "Hint", Mathf.Max(MinFontPx, hintFontSize), Green, TextAnchor.MiddleCenter,
                 new Vector2(0f, -203f), new Vector2(580f, 26f));
-            menuHint.text = "Swipe: select   Tap: open   2x tap: back";
+            menuHint.text = "Swipe: tiles   Swipe up: START LEVEL 1   Tap: open";
         }
 
         private static GameObject CreatePanel(RectTransform parent, string name)

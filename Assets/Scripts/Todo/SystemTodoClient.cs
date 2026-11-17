@@ -75,9 +75,19 @@ namespace RayneoIdle.Todo
         /// ContentResolver.call(uri, method, arg, extras). Blocking binder call (a few ms), main thread is fine.
         /// arg and extras are passed as "" / empty Bundle, never null: JNI cannot infer a signature for null.
         /// </summary>
+        /// <summary>
+        /// ON: every successful call is logged with its full JSON result (noisy: the island card reads the
+        /// list every few seconds). OFF (default): only warnings, slow calls and writes are logged.
+        /// </summary>
+        public static bool VerboseLog = false;
+
+        /// <summary>Calls slower than this (ms) are logged as a warning (they would stall a frame on the main thread).</summary>
+        public static int SlowCallWarnMs = 40;
+
         private static bool Call(string method, string arg, out string result)
         {
             result = null;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
@@ -103,7 +113,11 @@ namespace RayneoIdle.Todo
                     // as Object + toString so both work. Other methods do not set it (null).
                     using (var value = bundle.Call<AndroidJavaObject>("get", KeyResult))
                         result = value?.Call<string>("toString");
-                    Debug.Log($"[SystemTodo] {method}({arg}) ok: {result}");
+                    watch.Stop();
+                    bool isRead = method.StartsWith("get");
+                    if (VerboseLog || !isRead) Debug.Log($"[SystemTodo] {method}({arg}) ok in {watch.ElapsedMilliseconds} ms: {result}");
+                    if (watch.ElapsedMilliseconds > SlowCallWarnMs)
+                        Debug.LogWarning($"[SystemTodo] {method} SLOW: {watch.ElapsedMilliseconds} ms");
                     return true;
                 }
             }

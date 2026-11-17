@@ -443,6 +443,7 @@ MonoBehaviour:
   lockedHint: Set an anchor first (ANCHORS)
   keepAnchorRunning: 1
   invertSwipe: 0
+  invertVerticalSwipe: 0
   swipeCooldownSeconds: 0.35
   backDebounceSeconds: 0.6
   forceBlackBackground: 1
@@ -1635,7 +1636,8 @@ PrefabInstance:
       propertyPath: m_Name
       value: Gallery Button
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8140149236759329133, guid: 754c47cbacc3bc945814384ea525ee89, type: 3}
     m_RemovedGameObjects:
     - {fileID: 9106351835457796619, guid: 754c47cbacc3bc945814384ea525ee89, type: 3}
     m_AddedGameObjects:
@@ -1645,7 +1647,10 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1671116587838001858, guid: 754c47cbacc3bc945814384ea525ee89, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1290837345}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2006578279301370329, guid: 754c47cbacc3bc945814384ea525ee89, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1854282757}
   m_SourcePrefab: {fileID: 100100000, guid: 754c47cbacc3bc945814384ea525ee89, type: 3}
 --- !u!224 &446434448 stripped
 RectTransform:
@@ -3500,6 +3505,7 @@ GameObject:
   - component: {fileID: 1000538992}
   - component: {fileID: 1000538993}
   - component: {fileID: 1000538994}
+  - component: {fileID: 1000538995}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged
@@ -3623,6 +3629,7 @@ MonoBehaviour:
     inUse: 0
     timestamp: 0
     strike: {fileID: 0}
+    removed: 0
   - button: {fileID: 1083551241}
     label: {fileID: 1545550094}
     description: 
@@ -3630,6 +3637,7 @@ MonoBehaviour:
     inUse: 0
     timestamp: 0
     strike: {fileID: 0}
+    removed: 0
   - button: {fileID: 884440411}
     label: {fileID: 1799382105}
     description: 
@@ -3637,6 +3645,7 @@ MonoBehaviour:
     inUse: 0
     timestamp: 0
     strike: {fileID: 0}
+    removed: 0
   - button: {fileID: 443944266}
     label: {fileID: 1173709354}
     description: 
@@ -3644,6 +3653,7 @@ MonoBehaviour:
     inUse: 0
     timestamp: 0
     strike: {fileID: 0}
+    removed: 0
   - button: {fileID: 602454796}
     label: {fileID: 1789882658}
     description: 
@@ -3651,11 +3661,14 @@ MonoBehaviour:
     inUse: 0
     timestamp: 0
     strike: {fileID: 0}
+    removed: 0
   gallery: {fileID: 1000538992}
   artworkProgress: {fileID: 1000538993}
   useSystemTodos: 1
   pollSeconds: 2
   preferNewest: 1
+  deleteWhenUnlocked: 1
+  deleteWhenChecked: 1
   maxChars: 18
   taskList: {fileID: 46104525}
   headerText: {fileID: 469166438}
@@ -3663,6 +3676,23 @@ MonoBehaviour:
   todoColor: {r: 1, g: 1, b: 1, a: 1}
   doneColor: {r: 0.55, g: 1, b: 0.6, a: 1}
   strikeThickness: 3
+--- !u!114 &1000538995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000538988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c09522965d79ed14cb09dd32fab7e838, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pinchOnMeters: 0.02
+  pinchOffMeters: 0.035
+  onPinch:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1023617576
 GameObject:
   m_ObjectHideFlags: 0
@@ -3859,6 +3889,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1060938379}
   m_CullTransparentMesh: 1
+--- !u!4 &1069969955 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4087872765269157518, guid: f82accd910f54e44cb54d6e87ad284d6, type: 3}
+  m_PrefabInstance: {fileID: 163617655}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1083551239
 GameObject:
   m_ObjectHideFlags: 0
@@ -4086,7 +4121,7 @@ RectTransform:
   m_GameObject: {fileID: 1290837344}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.75, y: 0.75, z: 1}
+  m_LocalScale: {x: 0.8, y: 0.8, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 514988261}
@@ -4097,7 +4132,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 600, y: 440}
+  m_SizeDelta: {x: 630, y: 460}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1290837346
 MonoBehaviour:
@@ -5889,6 +5924,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1418387969}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1854282752 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2006578279301370329, guid: 754c47cbacc3bc945814384ea525ee89, type: 3}
+  m_PrefabInstance: {fileID: 446434447}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1854282757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1854282752}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aec6d61369381f14aa3a7029e9ba43cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  head: {fileID: 1069969955}
+  distance: 1.5
+  heightOffset: 0
+  lazyFollow: 1
+  angleThreshold: 20
+  distanceTolerance: 0.5
+  glideTime: 0.35
 --- !u!1 &1874271243
 GameObject:
   m_ObjectHideFlags: 0

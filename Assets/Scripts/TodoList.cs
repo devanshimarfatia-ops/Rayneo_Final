@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using RayneoIdle.Todo;   // SystemTodoClient (friend's package, RayNeo system To-do app)
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,6 +27,7 @@ public class TodoList : MonoBehaviour
         [HideInInspector] public bool inUse;      // row has a task this round
         [HideInInspector] public long timestamp;  // system To-do item key (0 = none)
         [HideInInspector] public Image strike;    // cross-out line, created at runtime
+        [HideInInspector] public bool removed;    // already deleted from the system To-do app
     }
 
     [Tooltip("Row pool. The card shows at most this many tasks per round. Duplicate Task_3 and add it here for more rows.")]
@@ -35,11 +37,18 @@ public class TodoList : MonoBehaviour
 
     [Header("System To-do (voice)")]
     public bool useSystemTodos = true;
-    [Tooltip("Seconds between re-reads of the system To-do list while the HUD is visible.")]
-    public float pollSeconds = 2f;
+    [Tooltip("0 = no periodic check (the list is still read when the level starts, when the gallery closes and " +
+             "when you come back from another app). On the glasses the periodic check runs on a background thread.")]
+    public float pollSeconds = 5f;
     [Tooltip("ON: when there are more unfinished todos than rows, show the NEWEST ones (the ones just added by voice). " +
              "OFF: show the oldest ones first.")]
     public bool preferNewest = true;
+    [Tooltip("ON: when an artwork unlocks, its to-dos are deleted from the RayNeo To-do app, so only new ones " +
+             "show up in TO-DOS. OFF: they stay there as finished. Either way they never come back on the card.")]
+    public bool deleteWhenUnlocked = true;
+    [Tooltip("ON: a to-do you cross out on the card is deleted from the RayNeo To-do app right away, so it is gone " +
+             "from the TO-DOS list too (it stays crossed out on the card). OFF: it is only marked finished there.")]
+    public bool deleteWhenChecked = true;
     [Tooltip("Longer task texts are cut with ... so they stay on one line (the cross-out line needs one line).")]
     public int maxChars = 18;
 
@@ -60,6 +69,13 @@ public class TodoList : MonoBehaviour
     private bool wasVisible;
     private float nextPoll;
     private int lastLoggedCount = -1;
+
+    // Background read (device only): the system To-do app is another process; with Wi-Fi on it can take
+    // long enough to answer that reading it on the main thread stalls frames. The worker thread only reads;
+    // the results are applied on the main thread in Update.
+    private Thread readThread;
+    private volatile bool readDone;
+    private List<RemoteTodo> readOpen, readFinished;
 
     // The header is visible whenever the HUD is on screen (GameWorld active, gallery closed).
     private bool Visible => headerText == null || headerText.gameObject.activeInHierarchy;
@@ -83,11 +99,51 @@ public class TodoList : MonoBehaviour
         if (!useSystemTodos) return;
         if (!Visible) { wasVisible = false; return; }
 
-        // Trigger: HUD just became visible (START ISLAND, gallery closed) -> read right away.
+        // A background read finished: apply it here, on the main thread.
+        if (readThread != null)
+        {
+            if (!readDone) return;
+            readThread = null;
+            ApplySync(readOpen, readFinished);
+        }
+
+        // Trigger: HUD just became visible (level started, gallery closed) -> read right away.
         if (!wasVisible) { wasVisible = true; nextPoll = 0f; }
         if (Time.unscaledTime < nextPoll) return;
-        nextPoll = Time.unscaledTime + pollSeconds;
-        Sync();
+        nextPoll = pollSeconds > 0f ? Time.unscaledTime + pollSeconds : float.MaxValue;
+        BeginRead();
+    }
+
+    // Reads the system lists without blocking the frame (device), or directly (Editor fake list).
+    void BeginRead()
+    {
+        if (busy || currentTile < 0 || readThread != null) return;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        readDone = false;
+        readThread = new Thread(() =>
+        {
+            AndroidJNI.AttachCurrentThread(); // JNI calls from a non-Unity thread need this
+            try
+            {
+                readOpen = SystemTodoClient.GetUnfinished();
+                readFinished = SystemTodoClient.GetFinished();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[TodoList] Background read failed: " + e.Message);
+                readOpen = new List<RemoteTodo>();
+                readFinished = new List<RemoteTodo>();
+            }
+            finally
+            {
+                AndroidJNI.DetachCurrentThread();
+                readDone = true;
+            }
+        }) { IsBackground = true, Name = "TodoListRead" };
+        readThread.Start();
+#else
+        ApplySync(SystemTodoClient.GetUnfinished(), SystemTodoClient.GetFinished());
+#endif
     }
 
     // Trigger: back from another app (e.g. system To-do screen) -> re-read on the next Update.
@@ -105,8 +161,8 @@ public class TodoList : MonoBehaviour
         Debug.Log($"[TodoList] Reload requested (useSystemTodos={useSystemTodos}, tile={currentTile}, busy={busy})");
         if (!useSystemTodos) return;
         if (currentTile < 0) LoadNextArtwork();   // e.g. artwork was assigned after start
-        Sync();
-        nextPoll = Time.unscaledTime + pollSeconds;
+        Sync();                                   // once, right away, so the card is filled on the first frame
+        nextPoll = pollSeconds > 0f ? Time.unscaledTime + pollSeconds : float.MaxValue;
     }
 
     // Hook to the To-Do header button
@@ -125,8 +181,21 @@ public class TodoList : MonoBehaviour
         Task t = tasks[index];
         if (!t.inUse || t.done) return;
 
-        if (fromPlayer && useSystemTodos && t.timestamp != 0 && !SystemTodoClient.SetFinished(t.timestamp))
-            Debug.LogWarning("[TodoList] Could not mark the todo finished in the system app: " + t.description);
+        if (useSystemTodos && t.timestamp != 0)
+        {
+            // Hidden from the TO-DOS list from now on, even if the system app refuses the call below.
+            TodoArchive.Add(t.timestamp);
+            if (fromPlayer && deleteWhenChecked)
+            {
+                t.removed = SystemTodoClient.Delete(t.timestamp);
+                Debug.Log($"[TodoList] Checked off \"{t.description}\", deleted in system app: {(t.removed ? "ok" : "FAILED (hidden anyway)")}");
+            }
+            else if (fromPlayer)
+            {
+                bool ok = SystemTodoClient.SetFinished(t.timestamp);
+                Debug.Log($"[TodoList] Finished \"{t.description}\" in system app: {(ok ? "ok" : "FAILED")}");
+            }
+        }
 
         t.done = true;
         int done = DoneCount();
@@ -146,10 +215,28 @@ public class TodoList : MonoBehaviour
 
         gallery.UnlockTile(currentTile);
         artworkProgress.SetLabel("Added to gallery!");
+        ClearUsedTodos();
         yield return new WaitForSeconds(2f);
 
         LoadNextArtwork();
         busy = false;
+    }
+
+    // Trigger: artwork unlocked. The round's to-dos are used up: archive them (never shown again) and,
+    // if Delete When Unlocked is on, remove them from the system To-do app.
+    void ClearUsedTodos()
+    {
+        if (!useSystemTodos) return;
+        foreach (Task t in tasks)
+        {
+            if (!t.inUse || t.timestamp == 0) continue;
+            TodoArchive.Add(t.timestamp);
+            if (deleteWhenUnlocked && !t.removed)
+            {
+                bool ok = SystemTodoClient.Delete(t.timestamp);
+                Debug.Log($"[TodoList] Delete used todo \"{t.description}\": {(ok ? "ok" : "FAILED (hidden anyway)")}");
+            }
+        }
     }
 
     void LoadNextArtwork()
@@ -179,6 +266,7 @@ public class TodoList : MonoBehaviour
         {
             Task t = tasks[i];
             t.done = false;
+            t.removed = false;
             t.timestamp = 0;
             if (systemTodos == null)
             {
@@ -203,6 +291,7 @@ public class TodoList : MonoBehaviour
                   string.Join(", ", names));
     }
 
+    // Immediate (blocking) read + apply. Used once when the level starts.
     void Sync()
     {
         if (busy || currentTile < 0)
@@ -210,7 +299,14 @@ public class TodoList : MonoBehaviour
             Debug.Log($"[TodoList] Sync skipped (busy={busy}, tile={currentTile})");
             return;
         }
-        List<RemoteTodo> unfinished = ReadUnfinished();
+        ApplySync(SystemTodoClient.GetUnfinished(), SystemTodoClient.GetFinished());
+    }
+
+    // Applies one read of the system lists (raw unfinished + finished) to the card. Main thread only.
+    void ApplySync(List<RemoteTodo> rawOpen, List<RemoteTodo> finishedList)
+    {
+        if (busy || currentTile < 0) return;
+        List<RemoteTodo> unfinished = PrepareUnfinished(new List<RemoteTodo>(rawOpen));
         if (unfinished.Count != lastLoggedCount)
         {
             lastLoggedCount = unfinished.Count;
@@ -226,11 +322,10 @@ public class TodoList : MonoBehaviour
 
         // Round in progress: cross out todos that were finished outside the game.
         // Only items actually in the finished list count, so a failed read never ticks everything.
-        List<RemoteTodo> finishedList = SystemTodoClient.GetFinished();
         var finished = new HashSet<long>();
         foreach (RemoteTodo r in finishedList) finished.Add(r.timestamp);
         var open = new HashSet<long>();
-        foreach (RemoteTodo r in SystemTodoClient.GetUnfinished()) open.Add(r.timestamp); // full list, not trimmed
+        foreach (RemoteTodo r in rawOpen) open.Add(r.timestamp); // full list, not trimmed
         // Both reads empty = probably a failed read: change nothing this time.
         bool readOk = finished.Count > 0 || open.Count > 0;
 
@@ -259,9 +354,12 @@ public class TodoList : MonoBehaviour
         if (done == roundTotal) StartCoroutine(FinishArtwork());
     }
 
-    List<RemoteTodo> ReadUnfinished()
+    List<RemoteTodo> ReadUnfinished() => PrepareUnfinished(SystemTodoClient.GetUnfinished());
+
+    // Archive filter, oldest-first sort, newest-N trim. Works on the given list.
+    List<RemoteTodo> PrepareUnfinished(List<RemoteTodo> list)
     {
-        List<RemoteTodo> list = SystemTodoClient.GetUnfinished();
+        TodoArchive.FilterOut(list); // used ones never return
         list.Sort((a, b) => a.timestamp.CompareTo(b.timestamp)); // oldest first, same order as the voice panel
         // More todos than rows: keep the newest ones (just added in the voice setup), still shown oldest -> newest.
         if (preferNewest && list.Count > tasks.Length)

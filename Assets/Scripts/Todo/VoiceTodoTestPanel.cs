@@ -11,7 +11,7 @@ namespace RayneoIdle.Todo
     /// <summary>
     /// Device validation panel for voice todos through the RayNeo system To-do app.
     ///
-    ///   Single tap       -> add a todo by voice: opens the system To-do voice screen (Editor: Space)
+    ///   Single tap       -> on the RECORD button: add a todo by voice (system To-do voice screen) (Editor: Space)
     ///   Swipe up / down  -> move the selection up / down the system To-do list      (Editor: Up / Down arrow)
     ///   Triple tap       -> mark the selected system item finished                  (Editor: Backspace)
     ///   Swipe fwd / back -> ask to DELETE the selected item; tap = delete, any swipe = keep
@@ -26,8 +26,8 @@ namespace RayneoIdle.Todo
     /// toast confirms it and the selection jumps to it.
     /// Platform SpeechRecognizer is NOT used: on the X3 Pro the default RecognitionService is a stub.
     ///
-    /// Island Gallery: when ContinueEnabled is set (by FeatureLauncher), a "START ISLAND" row sits under
-    /// the list. Swipe down onto it and tap -> OnContinue fires and the launcher opens the island game.
+    /// Island Gallery: a "+ RECORD NEW TO-DO" button row sits under the list and is selected when the panel
+    /// opens. Voice input starts ONLY from that button (tap); on a to-do row a tap just shows a hint.
     /// </summary>
     public class VoiceTodoTestPanel : MonoBehaviour
     {
@@ -67,6 +67,7 @@ namespace RayneoIdle.Todo
         private static readonly Color Cyan = new Color32(0x4D, 0xE2, 0xFF, 0xFF);
         private static readonly Color Green = new Color32(0x44, 0xFF, 0x66, 0xFF);
         private static readonly Color Red = new Color32(0xFF, 0x66, 0x66, 0xFF);
+        private static readonly Color Purple = new Color32(0x85, 0x66, 0xFF, 0xFF);
         private const string CyanHex = "#4DE2FF";
         private const string PurpleHex = "#8566FF";
 
@@ -95,7 +96,7 @@ namespace RayneoIdle.Todo
         private int selected;
         private int scrollStart; // first visible row index; only moves when the selection leaves the window
 
-        /// <summary>Show the START ISLAND row under the list (set by FeatureLauncher).</summary>
+        /// <summary>No longer used (the level starts from the launcher MENU). Kept so older code still compiles.</summary>
         public bool ContinueEnabled
         {
             get => continueEnabled;
@@ -106,7 +107,8 @@ namespace RayneoIdle.Todo
         /// <summary>Fires when the user taps the START ISLAND row (only with ContinueEnabled and >= 1 todo).</summary>
         public event Action OnContinue;
 
-        private ListRow startRow;
+        // "+ RECORD NEW TO-DO" button row under the list: selected when selected == systemTodos.Count.
+        private ListRow recordRow;
 
         // Delete flow: sideways swipe arms it for the selected todo, tap confirms, any swipe / timeout cancels.
         private bool deleteArmed;
@@ -114,8 +116,9 @@ namespace RayneoIdle.Todo
         private float deleteDeadline;
         // The START row is selected when selected == systemTodos.Count.
         // Only reachable once there is at least one todo: with an empty list, a tap must always open voice input.
-        private bool StartSelected => continueEnabled && systemTodos.Count > 0 && selected == systemTodos.Count;
-        private int MaxIndex => continueEnabled && systemTodos.Count > 0 ? systemTodos.Count : Mathf.Max(0, systemTodos.Count - 1);
+        private int RecordIndex => systemTodos.Count;
+        private bool RecordSelected => selected == RecordIndex;
+        private int MaxIndex => systemTodos.Count; // last step down = the RECORD button
 
         /// <summary>Runtime wiring, used by VoiceTodoTestBootstrap. Call before the component is enabled.</summary>
         public void Configure(Transform head, bool invertSwipe, float systemOpenTimeoutSeconds)
@@ -130,7 +133,7 @@ namespace RayneoIdle.Todo
             BindTouchpad();
             if (canvasGo != null) canvasGo.SetActive(true);
             // Re-read the system list when shown again (it may have changed while hidden).
-            if (rows != null) RefreshSystemList();
+            if (rows != null) { RefreshSystemList(); selected = RecordIndex; RefreshList(); }
         }
 
         // Trigger: component disabled (e.g. FeatureLauncher went back to its home screen).
@@ -141,7 +144,12 @@ namespace RayneoIdle.Todo
             if (canvasGo != null) canvasGo.SetActive(false);
         }
 
-        private void Start() => RefreshSystemList();
+        private void Start()
+        {
+            RefreshSystemList();
+            selected = RecordIndex; // open on the RECORD button
+            RefreshList();
+        }
 
         // Trigger: focus changes. Losing focus right after a tap = the system voice screen opened.
         // Getting focus back from it = the system is done (todo saved, or user backed out).
@@ -206,12 +214,10 @@ namespace RayneoIdle.Todo
             // Delete was asked for: this tap confirms it.
             if (deleteArmed) { ConfirmDelete(); return; }
 
-            // START ISLAND row: go on to the island game instead of opening voice input.
-            if (StartSelected)
+            // Recording only starts from the RECORD button, not from a to-do row.
+            if (!RecordSelected)
             {
-                if (systemTodos.Count == 0) { ShowToast("Add a todo first (tap on a list row)"); return; }
-                Debug.Log($"[VoiceTest] Continue with {systemTodos.Count} todos");
-                OnContinue?.Invoke();
+                ShowToast("Swipe down to RECORD to add a to-do");
                 return;
             }
 
@@ -257,7 +263,6 @@ namespace RayneoIdle.Todo
             if (Time.unscaledTime - lastSwipeTime < swipeCooldownSeconds) return;
             lastSwipeTime = Time.unscaledTime;
             if (deleteArmed) { CancelDelete(); return; } // swipe = keep, selection stays
-            if (systemTodos.Count == 0 && !continueEnabled) return;
             // Clamped, not wrapped: at the top / bottom row the selection stays put, like a list.
             // With ContinueEnabled the last step down is the START ISLAND row.
             selected = Mathf.Clamp(selected + dir, 0, MaxIndex);
@@ -319,9 +324,9 @@ namespace RayneoIdle.Todo
             }
 
             foreach (var t in added) Debug.Log($"[VoiceTest] New system todo {t.timestamp}: \"{t.text}\"");
-            // List is oldest first, so the newest added item is the last one: select it and show it.
+            // Stay on the RECORD button so the next to-do can be recorded right away.
             var newest = added[added.Count - 1];
-            selected = systemTodos.IndexOf(newest);
+            selected = RecordIndex;
             RefreshList();
             // Feedback toast (top zone, hides after toastSeconds); text cut to fit one line.
             ShowToast("Added: " + Shorten(newest.text, ToastMaxChars));
@@ -331,7 +336,8 @@ namespace RayneoIdle.Todo
 
         private void RefreshSystemList()
         {
-            systemTodos = SystemTodoClient.GetUnfinished();
+            // To-dos already used to unlock an artwork are hidden, even if the system app still lists them.
+            systemTodos = TodoArchive.FilterOut(SystemTodoClient.GetUnfinished());
             // Oldest first: number 1 = oldest, highest number = most recently added.
             systemTodos.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
             selected = Mathf.Clamp(selected, 0, MaxIndex);
@@ -369,10 +375,10 @@ namespace RayneoIdle.Todo
         {
             if (flow != Flow.Idle) hintText.text = "Opening voice input...";
             else if (deleteArmed) hintText.text = "Tap: DELETE   Swipe: keep";
-            else if (StartSelected) hintText.text = "Tap: start island   Swipe up: back to list";
-            else hintText.text = continueEnabled
-                ? "Tap: add by voice   3x tap: done   Swipe sideways: delete\nSwipe down to START ISLAND"
-                : "Tap: add by voice   3x tap: done   Swipe sideways: delete";
+            else if (RecordSelected) hintText.text = systemTodos.Count == 0
+                ? "Tap: record a to-do"
+                : "Tap: record a to-do   Swipe up: your list";
+            else hintText.text = "3x tap: done   Swipe sideways: delete   Swipe down: RECORD";
         }
 
         /// <summary>
@@ -416,14 +422,13 @@ namespace RayneoIdle.Todo
                 row.frame.SetActive(isSelected);
             }
 
-            // START ISLAND row (Island Gallery flow).
-            if (startRow != null)
+            // RECORD button row: always there, the only way to start voice input.
+            if (recordRow != null)
             {
-                startRow.root.SetActive(continueEnabled);
-                bool sel = StartSelected;
-                startRow.text.text = (sel ? "> " : "  ") + "START ISLAND  >>";
-                startRow.text.color = count == 0 ? new Color(Green.r, Green.g, Green.b, 0.5f) : sel ? Cyan : Green;
-                startRow.frame.SetActive(sel);
+                bool sel = RecordSelected;
+                recordRow.text.text = (sel ? "> " : "  ") + "+  RECORD NEW TO-DO";
+                recordRow.text.color = sel ? Cyan : Purple;
+                recordRow.frame.SetActive(sel);
             }
             if (hintText != null) RefreshHint();
         }
@@ -477,11 +482,10 @@ namespace RayneoIdle.Todo
                 float y = ListTopPx - ListHeaderPx - RowGapPx - r * (RowHeightPx + RowGapPx);
                 rows[r] = CreateRow(canvasRt, r, y);
             }
-            // START ISLAND row, one extra gap below the last list row (hidden unless ContinueEnabled).
-            float startY = ListTopPx - ListHeaderPx - RowGapPx - MaxSystemShown * (RowHeightPx + RowGapPx) - 8f;
-            startRow = CreateRow(canvasRt, MaxSystemShown, startY);
-            startRow.root.name = "StartIslandRow";
-            startRow.root.SetActive(false);
+            // RECORD button row, one extra gap below the last list row.
+            float recordY = ListTopPx - ListHeaderPx - RowGapPx - MaxSystemShown * (RowHeightPx + RowGapPx) - 8f;
+            recordRow = CreateRow(canvasRt, MaxSystemShown, recordY);
+            recordRow.root.name = "RecordRow";
             // bottom zone = hints
             hintText = CreateText(canvasRt, "HintText", HintFontSize, Green, TextAnchor.LowerCenter,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, MarginPx), new Vector2(innerWidth, 26f));
