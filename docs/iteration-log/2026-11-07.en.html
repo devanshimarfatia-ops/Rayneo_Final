@@ -1,0 +1,220 @@
+<html><head><meta charset="utf-8"><title>Prototype Iteration Log (2026-11-07) - English</title></head><body>
+<h1>Prototype Iteration Log (2026-11-07)</h1>
+<p>Nov 7, 2026 · Yaxin Mu</p>
+<h2>Overview</h2>
+<p>In one day the prototype phase went from nothing to an MVP that runs end to end on the glasses: economy, saves, chests and cards, the treasure map, six tool panels, onboarding, a shop and character looks, refined over four device test rounds. Code is on branch <code>Yaxin-Mu/Prototype</code> (pushed; 28 feature commits, each compiled on its own).</p>
+<p><b>How we worked</b></p>
+<ul>
+<li>Automated tests: smoke test (22 checks: economy, saves, demo mode) and onboarding test (23 checks), run inside Unity in the background.</li>
+<li>Automated screenshots: the HUD and panels rendered at the glasses' 30° view; reviewed before each hand-off.</li>
+<li>Device: one-command APK build + adb install; the device log streams to the PC during each test (<code>Build/device_log_*.txt</code>) and is read afterwards.</li>
+</ul>
+<p><b>Timeline</b> (2026-11-07, newest first)</p>
+<table border="1">
+<tr><th>Time</th><th>Iteration</th><th>Main content</th></tr>
+<tr><td>17:30–17:45</td><td>After device test 4</td><td>Rename prefix stacking bug fixed; commit and push</td></tr>
+<tr><td>17:10–17:23</td><td>After device test 3</td><td>Map's own progress row, Buy a pack, Profile with Skills / Look / Pets</td></tr>
+<tr><td>16:45–17:05</td><td>After device test 2</td><td>Start screen + offline earnings, anchor tutorial redone, tutorial frame / pointer / intro and end cards</td></tr>
+<tr><td>16:17–16:39</td><td>After device test 1b</td><td>Chest reward window (rewards in order, open the pack in place), map lowered</td></tr>
+<tr><td>15:45–16:13</td><td>After device test 1</td><td>RayNeo palette, new toolbar, Anchors panel, Profile, 54 cards, body-following map</td></tr>
+<tr><td>15:20–15:40</td><td>Iteration 3 (V3)</td><td>Onboarding W11, Game scene, first APK on the glasses</td></tr>
+<tr><td>15:00–15:20</td><td>Iteration 2 (V2)</td><td>To-do / Collection / Settings panels, GDD rarity colors</td></tr>
+<tr><td>14:30–15:00</td><td>Iteration 1 (V1)</td><td>First HUD + parchment line-art treasure map</td></tr>
+<tr><td>13:40–14:30</td><td>Iteration 0</td><td>Core systems W1–W4, W7–W9, smoke test</td></tr>
+</table>
+
+<h2>Iteration 0: core systems (13:40–14:30)</h2>
+<p>Economy, saves, cards, island logic, zone todos, input and demo mode were built first as plain C# without Unity, and every number was checked against the MVP column of the economy sheet.</p>
+<table border="1">
+<tr><th>Module</th><th>What it does</th></tr>
+<tr><td>W1 IdleCore</td><td>Coins, passive income, Coin Rate 20-level price curve, chest search, injectable clock (D9)</td></tr>
+<tr><td>W2 Save / offline</td><td>JSON per slot, temp file + .bak; launch settle, silent pause settle (D4), 24 h cap</td></tr>
+<tr><td>W3 Island logic</td><td>3 chest areas, search area, chest positions</td></tr>
+<tr><td>W4 Cards</td><td>3 reward slots per chest (73/22/5), 5-card packs, duplicates to coins, Special pity</td></tr>
+<tr><td>W7 Zone todos</td><td><code>(Zone)-</code> prefix parse and write-back (D3), To-do reward paid once</td></tr>
+<tr><td>W8 Input</td><td>Touchpad + keyboard mapped to Confirm / Back / Prev / Next / Up / Down, handler stack</td></tr>
+<tr><td>W9 Demo / Reset</td><td>1x / 60x / 1800x, separate demo save slot, Reset with three taps</td></tr>
+</table>
+<p><b>Found and fixed</b></p>
+<ul>
+<li>Floating-point edge: at 1800x, 30 s should give 3 chests but gave 2 (15 h summed to 14.99999 h) → small tolerance.</li>
+<li>The economy sheet says all Specials by draw 75; the rule as written triggers pity at draws 26 / 52 / 78 → sheet to be corrected to 78.</li>
+<li>One commit batch had a dependency order error (one commit did not compile alone) → reordered; every batch since is compiled commit by commit.</li>
+</ul>
+
+<h2>Iteration 1: first HUD + treasure map (14:30–15:00)</h2>
+<p>We agreed the visual direction with Yaxin, then drew the first HUD and treasure map in code.</p>
+<p><b>Agreed direction</b></p>
+<ul>
+<li>No big island: a flat line-art treasure map to the right of the view.</li>
+<li>Line art only, no large fills (black is transparent on the glasses; keep brightness low).</li>
+<li>Limited, muted parchment palette (replaced by the RayNeo palette after device test 1).</li>
+<li>Toolbar at the bottom of the forward view, head-locked.</li>
+</ul>
+<p><b>Found in screenshot review and fixed</b></p>
+<ul>
+<li>8 px focus frame merged with the icon's own border into one bright block → unfocused icons dimmed without a frame, 4 px focus frame.</li>
+<li>The head-locked HUD covered the map when looking at it → only toasts stay while the map is in view.</li>
+<li>The map canvas scale was tied to distance, so moving it away did not shrink it → scale fixed at 2 m, map placed at 2.6 m.</li>
+<li>Chest result text covered the coastline → shown as a toast.</li>
+<li>Chests could land on the coastline → chest areas tightened.</li>
+</ul>
+<p><b>V1 screenshots</b> (re-rendered from commit <code>cf9b573</code>, fixes above included)</p>
+<p><i>V1-1 Forward HUD: parchment palette, old toolbar (To-do / Map / Collection / Upgrade / Pomodoro / Settings), "Chest &gt;" text hint</i></p>
+<p><img src="screenshots/v1-parchment-hud-map/hud_forward.png"></p>
+<p><i>V1-2 Treasure map: fixed to the right of the start view at eye level, progress row under the map</i></p>
+<p><img src="screenshots/v1-parchment-hud-map/hud_map.png"></p>
+<p><i>V1-3 After opening a chest: rewards as a toast</i></p>
+<p><img src="screenshots/v1-parchment-hud-map/hud_map_open.png"></p>
+
+<h2>Iteration 2: three panels + rarity colors (15:00–15:20)</h2>
+<p>The To-do (W7 UI), Collection (W5) and Settings (W9 Reset + hidden demo toggle) panels went live on one shared panel framework.</p>
+<ul>
+<li>To-do: the current zone's todos + voice create; tap = finish, +320.</li>
+<li>Collection: 3×3 grid, unowned = silhouette, packs show their 5 cards directly (D1).</li>
+<li>Settings: Reset needs 3 taps (red warning); 5 taps on the version row = demo mode.</li>
+</ul>
+<p><b>Feedback and fixes</b></p>
+<ul>
+<li>The NEW label covered the card frame → a small dot in the card corner + NEW in the info pane.</li>
+<li>Yaxin: rarity must be clearly distinct → GDD colors: Common silver-gray #D0D8E0, Treasured gold #FFC83D, Special purple #8566FF; card names in reward toasts use the same colors.</li>
+</ul>
+<p><b>V2 screenshots</b> (re-rendered from commit <code>33c29ac</code>)</p>
+<p><i>V2-1 To-do panel</i></p>
+<p><img src="screenshots/v2-panels/panel_todo.png"></p>
+<p><i>V2-2 Collection 3×3 (GDD rarity colors)</i></p>
+<p><img src="screenshots/v2-panels/panel_collection.png"></p>
+<p><i>V2-3 Opening a pack in the Collection</i></p>
+<p><img src="screenshots/v2-panels/panel_pack.png"></p>
+<p><i>V2-4 Settings: second Reset confirmation</i></p>
+<p><img src="screenshots/v2-panels/panel_settings.png"></p>
+
+<h2>Iteration 3: onboarding + Game scene + first APK (15:20–15:40)</h2>
+<p>Onboarding chains demo steps 1–10; <code>Game.unity</code> is generated for the glasses (first in Build Settings); the first APK went on the glasses.</p>
+<ul>
+<li>Onboarding: welcome → tap / swipe / double tap → set anchor → To-do → toolbar → look at the map → tutorial chest → pack → Collection; skippable, saved every step.</li>
+<li>Anchor system "game mode" (no debug HUD or touch input of its own).</li>
+<li>Fixed a start-order risk: the To-do service could look for ModeManager before it existed.</li>
+<li>On the glasses: the app stalled at launch = the screen was dozing (fine after an adb wake); the device log buffer is only 64 KB, so logs stream to the PC from then on.</li>
+</ul>
+<p><b>V3 screenshots</b> (re-rendered from commit <code>e7a5f9e</code>, the first version on the glasses; tutorial shots from that version's automated test)</p>
+<p><i>V3-1 Tutorial start: one hint line, no welcome card</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_1_welcome.png"></p>
+<p><i>V3-2 Set anchor: one tap places it, no anchor UI (the main issue found in device test 3)</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_2_anchor.png"></p>
+<p><i>V3-3 To-do: the panel opens by itself</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_3_todo.png"></p>
+<p><i>V3-4 Toolbar step</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_4_toolbar.png"></p>
+<p><i>V3-5 Tutorial search: smaller map, hint under the map</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_5_search.png"></p>
+<p><i>V3-6 Tutorial chest appears</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_6_chest.png"></p>
+<p><i>V3-7 Collection: the pack is opened here</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_7_collection.png"></p>
+<p><i>V3-8 Pack revealed</i></p>
+<p><img src="screenshots/v3-onboarding-first-apk/ob_8_pack.png"></p>
+
+<h2>Device tests 1–4: findings and changes</h2>
+<p>The versions between these tests were not committed one by one (they landed in one commit), so they cannot be re-rendered; the final look is in the last section.</p>
+<p><b>Device test 1 → big rework</b> (tested 15:36, new build 16:13)</p>
+<table border="1">
+<tr><th>#</th><th>Finding</th><th>Change</th></tr>
+<tr><td>1</td><td>No place to set several anchors</td><td>Anchors tool (diamond icon): 3 slots in three boxes, preset names + voice rename (text captured through the To-do voice flow, temporary todo deleted)</td></tr>
+<tr><td>2</td><td>Icons too abstract</td><td>To-do = pen + notepad, Collection = chest</td></tr>
+<tr><td>3</td><td>Zone todos not on the main view</td><td>Zone name + first 3 todos under the coins (it had been missed, not an anchor problem)</td></tr>
+<tr><td>4</td><td>Upgrade should be an openable tool</td><td>Profile (character) panel</td></tr>
+<tr><td>5</td><td>Map: progress on the main view, no Map tool, too high, arrow instead of text</td><td>Progress row bottom center; map follows the body (55° right, follows only after facing a new way); double arrow</td></tr>
+<tr><td>6</td><td>Rename Focus timer</td><td>Pomodoro</td></tr>
+<tr><td>7</td><td>Palette looks strange</td><td>RayNeo colors: cyan #4DE2FF, green #44FF66, gray-cyan #7FA8B8</td></tr>
+<tr><td>8</td><td>Collection should show progress per rarity first</td><td>Three-box overview (owned/18), 6×3 page per rarity; card pool grown to 54</td></tr>
+</table>
+<p>Also: the onboarding hint said "Tap" after the focus moved away → it now follows the focus. 54 cards still use the 9-card draw values → economy re-tune pending. Renaming broke todo prefixes → rename now rewrites them with <code>todoEdit</code>.</p>
+<p><b>Device test 2 → chest reward window</b> (tested 16:14, new build 16:39)</p>
+<table border="1">
+<tr><th>Finding</th><th>Change</th></tr>
+<tr><td>Map still too high</td><td>About 8° below eye level</td></tr>
+<tr><td>Chest rewards were one toast line; the pack had to be found in the Collection</td><td>Reward window: rewards appear one by one, tap the pack to open it in place (5 cards framed after it); map hidden while open</td></tr>
+<tr><td>One swipe sometimes moved two steps (2 step events per swipe)</td><td>Repeat guard 0.12 s → 0.18 s</td></tr>
+<tr><td>A save stopped at "open tutorial chest" after the chest was opened got stuck</td><td>Resume skips to the next step</td></tr>
+</table>
+<p><b>Device test 3 → Start screen and onboarding redo</b> (tested 16:42, new build 17:05)</p>
+<p>Main issue: setting the anchor "took me to To-do". The log showed one tap at 16:42:36 placed the anchor silently and opened the To-do panel at once.</p>
+<table border="1">
+<tr><th>Finding</th><th>Change</th></tr>
+<tr><td>Anchor step jumped to To-do</td><td>The step opens Anchors on slot 1: place, focus moves to Name to rename, continue only after closing; To-do no longer opens by itself</td></tr>
+<tr><td>No Start</td><td>Every launch opens a Start screen: only Start and the coins</td></tr>
+<tr><td>No offline earnings window</td><td>Earnings window before Start; then the coins show "before + gain" and count up</td></tr>
+<tr><td>Not clear it is a tutorial</td><td>Green framed hint marked TUTORIAL k/12; blinking arrow over the toolbar icon; intro card</td></tr>
+<tr><td>No end message</td><td>End card: Tutorial complete, have a great day</td></tr>
+<tr><td>"Searching" sounds odd</td><td>Treasure hunt 42%</td></tr>
+</table>
+<p>Offline earnings now show 5 decimals (D4 said 10); logs keep 10.</p>
+<p><b>Device test 4 → shop and Profile</b> (tested 17:23)</p>
+<p>After a Reset the full onboarding ran through (2 min 9 s, no errors). Three new requests and one bug from the log.</p>
+<table border="1">
+<tr><th>Finding / request</th><th>Change</th></tr>
+<tr><td>The HUD progress row hid with the HUD while looking at the map</td><td>The map has its own progress row above it; the HUD row hides while the map is in view</td></tr>
+<tr><td>Need a way to spend coins</td><td>"Buy a pack 3,000 coins" under the Collection overview; the pack opens at once</td></tr>
+<tr><td>Profile needs sections</td><td>Skills / Look / Pets; 4 outfits (incl. trousers and a long dress), 6 colors, 4 pets; some free, the rest bought with coins; the pet follows the explorer on the map</td></tr>
+<tr><td>Bug: renaming back and forth gave <code>(Work)-(Study)-(Office)-(Study)-…</code></td><td>Rename strips the prefix with the OLD names first; stacked preset prefixes are cleaned when shown</td></tr>
+</table>
+
+<h2>Device facts confirmed on the glasses</h2>
+<table border="1">
+<tr><th>Fact</th><th>Result</th><th>Meaning</th></tr>
+<tr><td><code>todoEdit</code> rewrites a todo's text</td><td>Works</td><td>D3 (zone in the todo text) holds</td></tr>
+<tr><td><code>startTodo</code> voice create in SLAM mode</td><td>Works, returns to the game, SLAM fine</td><td>Open question from 10-19 closed</td></tr>
+<tr><td><code>deleteTodo</code></td><td>Wired in (voice rename)</td><td>Not yet checked on device</td></tr>
+<tr><td>One swipe = 2 step events</td><td>Usually &lt; 40 ms apart, sometimes &gt; 120 ms</td><td>Repeat guard 0.18 s</td></tr>
+<tr><td>App stalls while the screen dozes</td><td>Fine after <code>adb shell input keyevent KEYCODE_WAKEUP</code></td><td>Wake before testing</td></tr>
+<tr><td>Device log buffer 64 KB</td><td>Flushed by system logs in seconds</td><td>Stream <code>logcat</code> to the PC during tests</td></tr>
+<tr><td>Work zone entered right at launch</td><td>SLAM origin resets each launch; an anchor near the origin always hits</td><td>Does not prove anchors persist (test 3 still to do)</td></tr>
+</table>
+
+<h2>Open items</h2>
+<ul>
+<li>☐ Economy re-tune: 54 cards (D6) draw odds, pity, collection pace; pity "75" → "78"</li>
+<li>☐ Add shop and cosmetic prices to the economy sheet: pack 3,000; outfits 0 / 0 / 1,000 / 2,500; colors 0 / 0 / 500 / 800 / 1,200 / 2,000; pets 1,500 / 1,500 / 3,000 / 5,000</li>
+<li>☐ Sync both GDDs (EN + ZH): D3, D4 (5 decimals), D6 (54 cards), D8 (code HUD), palette, shop, Profile, Start screen</li>
+<li>☐ Device: anchor persistence (start elsewhere, walk back), voice rename (<code>deleteTodo</code>), shop / Look / Pets</li>
+<li>☐ Card art beyond the 9 placeholder symbols (now 9 symbols × 2 frames)</li>
+<li>☐ Archive screenshots every round (done from today on, in <code>Screenshots/</code>)</li>
+<li>☐ Open a PR to <code>main</code></li>
+</ul>
+
+<h2>Screenshots: latest build (17:39)</h2>
+<p>Rendered in Unity at the glasses' 30° view; black = transparent. All screenshots are archived in the working folder: <code>Screenshots/2026-11-07/</code> (latest), <code>v1-parchment-hud-map/</code>, <code>v2-panels/</code>, <code>v3-onboarding-first-apk/</code>.</p>
+<p><b>1. Offline earnings window</b> (shown first at launch; this shot still has 10 decimals, now 5)</p>
+<p><img src="screenshots/2026-11-07/start_settle.png"></p>
+<p><b>2. Start screen</b> (coins first show "before + gain")</p>
+<p><img src="screenshots/2026-11-07/start_button.png"></p>
+<p><b>3. Tutorial intro card</b></p>
+<p><img src="screenshots/2026-11-07/ob_1_welcome.png"></p>
+<p><b>4. Tutorial: anchor step</b> (TUTORIAL 4/12)</p>
+<p><img src="screenshots/2026-11-07/ob_2_anchor.png"></p>
+<p><b>5. Tutorial: arrow over the To-do icon</b></p>
+<p><img src="screenshots/2026-11-07/ob_3_todo_pointer.png"></p>
+<p><b>6. Main HUD</b> (zone todos, Treasure hunt progress, look-right double arrow, new toolbar)</p>
+<p><img src="screenshots/2026-11-07/hud_forward.png"></p>
+<p><b>7. Treasure map</b> (follows the body, below eye level; progress row above the map)</p>
+<p><img src="screenshots/2026-11-07/hud_map.png"></p>
+<p><b>8. Chest reward window</b></p>
+<p><img src="screenshots/2026-11-07/reward_chest.png"></p>
+<p><b>9. Pack opened in the reward window</b></p>
+<p><img src="screenshots/2026-11-07/reward_pack.png"></p>
+<p><b>10. Anchors panel</b></p>
+<p><img src="screenshots/2026-11-07/panel_anchors.png"></p>
+<p><b>11. Collection overview + Buy a pack</b></p>
+<p><img src="screenshots/2026-11-07/panel_collection.png"></p>
+<p><b>12. Collection: Treasured page 6×3</b></p>
+<p><img src="screenshots/2026-11-07/panel_collection_page.png"></p>
+<p><b>13. Profile overview</b></p>
+<p><img src="screenshots/2026-11-07/panel_profile.png"></p>
+<p><b>14. Profile: Look</b></p>
+<p><img src="screenshots/2026-11-07/panel_profile_look.png"></p>
+<p><b>15. Profile: Pets</b></p>
+<p><img src="screenshots/2026-11-07/panel_profile_pets.png"></p>
+<p><b>16. Tutorial end card</b></p>
+<p><img src="screenshots/2026-11-07/ob_10_end.png"></p>
+</body></html>
