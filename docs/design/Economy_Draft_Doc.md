@@ -2,6 +2,8 @@
 
 Status: first draft, not playtested. Source of truth for every number and formula: `Economy_Draft.xlsx` (sheet Params; all other sheets recalculate from it). This tab summarises its results as of November 1, 2026 (MVP section updated for MVP_Scope_Draft decisions D3, D4, D6 and the 10-minute demo; full-design Pomodoro changed to 45 min per GDD 3.3). Section 8 covers the MVP subset (Params column `MVP value`, sheets `MVP Summary` and `MVP Timeline`).
 
+**Sync note (November 21, 2026).** Section 8 now records what the prototype build actually uses. The build differs from the workbook in three ways: the card pool is 54 cards (18 / 18 / 18, decision D6 changed on November 7), blind packs can be bought in the Collection for 3,000, and cosmetics (outfits, colors, pets) are sold for coins at placeholder prices (8.8). The workbook and the pacing results in 8.3–8.5 and 8.7 still assume the 9-card pool and no shop, so they are out of date until the re-tune (open question 11). The workbook itself was not changed in this pass.
+
 ## 1. How the Economy Works
 
 ### 1.1 Core loop as a flow
@@ -215,8 +217,9 @@ The MVP build (Section 9.3, Production Scope) cuts several systems that the full
 | Daily login | Out | Needs multi-day play; cannot be shown in a 10-minute demo | -300 coins/day, no 5-day cards |
 | Pomodoro | Icon only, no function (D7) | Timer and rewards are not needed to prove the loop | -1,080 coins/day; utility depends on To-do alone |
 | Exploration, Luck | Out | One stat proves the spend loop | Coin Rate is the only coin sink |
-| Shop packs | Out | Adds balance work | Packs come only from chests, so chests carry the whole card budget |
-| Kept | In | Passive income with the 24 h offline cap. To-do. Onboarding with the tutorial chest (GDD 2.1). 1 island with 3 chest slots and a chest progress bar. Packs from chests. Duplicates. 9-card pool (3 / 3 / 3). Coin Rate. | - |
+| Shop packs | In (build): "Buy a pack" in the Collection, 3,000, opens at once. Workbook: still out | Added after device test 4 so coins have a second use | Packs no longer come only from chests; the card budget and pacing must be re-modelled (open question 11) |
+| Cosmetics | In (build): outfits, clothing colors, pets at placeholder prices (8.8). Workbook: not modelled | Added after device test 4 | A new coin sink with no stat effect; competes with Coin Rate for coins |
+| Kept | In | Passive income with the 24 h offline cap. To-do. Onboarding with the tutorial chest (GDD 2.1). 1 island with 3 chest slots and a chest progress bar. Packs from chests. Duplicates. 54-card pool (18 / 18 / 18) in the build; the workbook still uses 9 (3 / 3 / 3). Coin Rate. | - |
 
 ### 8.2 Changed parameters
 
@@ -225,13 +228,13 @@ The MVP build (Section 9.3, Production Scope) cuts several systems that the full
 | Login coins / bonus cards | 300 / 3 | 0 / 0 | Cut |
 | Pomodoros per day | 1 (45 min) | 0 | Cut: icon only (D7) |
 | Exploration / Luck max level | 5 / 5 | 0 / 0 | Cut |
-| Pack spend share | 25% | 0% | No shop |
+| Pack spend share | 25% | 0% | Workbook: no shop. The build sells packs (3,000); the share is to be set in the re-tune |
 | To-do reward | 250 | 320 | To-do is the only utility source left. Keeps utility >= 25% at start and >= 20% at the day-7 level |
 | Coin reward per chest slot | 150 | 100 | Otherwise chest coins outgrow To-do coins |
 | Chest slot weights (coins / card / pack) | 78 / 20 / 2 | 73 / 22 / 5 | Chests carry the whole card budget: 1.4 cards per chest, and 1 chest in 7 holds a pack |
-| Card pool (Common / Treasured / Special) | 5 / 3 / 1 | 3 / 3 / 3 | D6: 9 cards, 3 per rarity (one gallery row per rarity) |
+| Card pool (Common / Treasured / Special) | 5 / 3 / 1 | 18 / 18 / 18 (build); 3 / 3 / 3 (workbook) | D6 changed November 7: 54 cards, 18 per rarity (one 6 × 3 page per rarity). The workbook still models 9 cards |
 | Rarity weights (Common / Treasured / Special) | 79 / 20 / 1 | 60 / 30 / 10 | 3 Specials instead of 1. At 3.3% per Special card and about 7 draws a day, P(complete) is under 50% after day 6 and over 50% after day 7 |
-| Special pity | Guaranteed by draw 100 | 25 draws without a new Special | Pity rule: after N draws without a new Special, the next draw is a Special the player does not own. Worst case: all 3 Specials by draw 75 (about day 10) |
+| Special pity | Guaranteed by draw 100 | 25 draws without a new Special | Pity rule: after N draws without a new Special, the next draw is a Special the player does not own. The forced draw is the 26th, so the worst case for 3 Specials is draw 78 (about day 10; earlier drafts said 75). With the build's 18 Specials the worst case is draw 468, far past week 1: weights and pity were not re-tuned for 54 cards |
 | Coin Rate level-1 cost | 500 | 250 | Cheaper than one To-do, so the onboarding To-do alone pays for level 1 |
 | Coin Rate cost growth | 1.45 | 1.21 | Coin Rate is the only sink, so a level must stay affordable every day of week 1 |
 | Coin Rate max level | 10 | 20 | The only sink must last past week 1 (total 52,700) |
@@ -326,9 +329,9 @@ All 22 MVP checks pass (`MVP Summary` sheet).
 
 ### 8.6 Time and settle rules (D4, D9)
 
-- **Real exit only.** Only an app close or a system kill is a real exit. The next launch shows the offline settle toast: saved rate x min(away time, 24 h). There is no minimum away time, so 10 s counts.
-- **Pause is not an exit.** A pause of any length (`startTodo`, system dialogs, screen off, glasses off) stays the same session. On resume, the coins and chest discovery for the paused time are added silently, with the same 24 h cap. The economy formula is the same as offline income; only the toast is skipped.
-- **Fractional coins.** The balance is stored as a fraction (double). Only the settle toast shows 10 decimals; the HUD shows whole coins, rounded down.
+- **Real exit only.** Only an app close or a system kill is a real exit. The next launch shows the offline earnings window (before the Start screen): saved rate x min(away time, 24 h). There is no minimum away time, so 10 s counts.
+- **Pause is not an exit.** A pause of any length (`startTodo`, system dialogs, screen off, glasses off) stays the same session. On resume, the coins and chest discovery for the paused time are added silently, with the same 24 h cap. The economy formula is the same as offline income; only the window is skipped.
+- **Fractional coins.** The balance is stored as a fraction (double). Only the offline earnings window shows decimals (5; logs keep 10); the HUD shows whole coins, rounded down.
 - **Clock.** Elapsed time comes from the glasses' system time, computed in UTC. A negative elapsed time counts as 0.
 - **Chest search.** Offline and paused time only find chests up to the 3 slots. The chest progress bar shows the progress on the next chest. When all 3 slots are full, the search stops until a chest is opened.
 
@@ -344,10 +347,10 @@ There is no prepared demo save. Every number below is an expected value at 1x un
 | 2:30-3:00 | 1x | 4-5 Add + finish To-do | Todo tagged `(Work)-`; finish it: +320 | 325 |
 | 3:00-3:30 | 1x | 6 Tool menu | Menu below the forward view | about 326 |
 | 3:30-4:30 | 1x | 7-8 Island + tutorial chest | Progress bar fills over the onboarding delay; chest gives +500, 1 Common and 1 pack | about 827 |
-| 4:30-5:30 | 1x | 9-10 Pack + collection | 5 cards: about 3 NEW and 2 duplicates (+about 118). Collection shows about 4 of 9 | about 948 |
+| 4:30-5:30 | 1x | 9-10 Pack + collection | 5 cards: about 3 NEW and 2 duplicates (+about 118). Collection shows about 4 of 9. With the build's 54 cards almost every card is NEW (about 6 of 54, duplicate coins about 0), so coins are about 830 | about 948 (9-card model) |
 | 5:30-6:00 | 1x | 11 Upgrade | Buy Coin Rate level 1 (-250). HUD goes from 100 to 105 coins/h. 3 levels would be affordable | about 698 |
 | 6:00-7:00 | 60x, then 1800x | Normal play (optional showcase) | 60x for about 15 s: "60x DEMO" badge, about 1.75 coins/s, the bar moves. Then 1800x for 30 s: one chest every 10 s, all 3 slots full, +1,575 coins. Open one chest (about +219 coins and 1.6 cards). Back to 1x; the badge disappears | about 2,500, about 5 more levels affordable |
-| 7:00-8:30 | 1x | 12 Quit + re-enter | Closed for 30 s. Settle toast "+0.8750000000" (105/h x 30 s). Coins, cards, level, task and chest state are unchanged | previous + 0.875 |
+| 7:00-8:30 | 1x | 12 Quit + re-enter | Closed for 30 s. Offline earnings window "+0.87500" (105/h x 30 s), then Start. Coins, cards, level, task and chest state are unchanged | previous + 0.875 |
 | 8:30-9:30 | 1x | 13 Reset | Two confirmations, back to step 1 | 0 |
 | 9:30-10:00 | - | Buffer | - | - |
 
@@ -371,6 +374,20 @@ QA reference for the 9.2b acceptance (passive income and chest discovery only: C
 | 15 | 1,575 | 3 | 15 min | 30 s |
 | 24 | 2,520 | 3 | 24 min | 48 s |
 
+### 8.8 Shop and cosmetic prices in the build (placeholders)
+
+Set in code on November 7, 2026, not derived from the targets in 1.2. Read in "hours of base passive" (100 coins = 1 h).
+
+| Item | Price | Hours of base passive |
+|---|---|---|
+| Blind pack ("Buy a pack", Collection) | 3,000 | 30 |
+| Outfits: Explorer / Long dress / Overalls / Hooded cloak | 0 / 0 / 1,000 / 2,500 | 0 / 0 / 10 / 25 |
+| Clothing colors: Cyan / Green / Gold / Silver / Purple / Pink | 0 / 0 / 500 / 800 / 1,200 / 2,000 | 0 / 0 / 5 / 8 / 12 / 20 |
+| Pets: Cat / Dog / Bird / Turtle | 1,500 / 1,500 / 3,000 / 5,000 | 15 / 15 / 30 / 50 |
+| All cosmetics | 19,000 | 190 (about 3.4 days of MVP start income) |
+
+Cosmetics have no stat effect. Buying them delays Coin Rate levels, which the MVP pacing in 8.4 does not model.
+
 ## 9. Open Questions
 
 1. **To-do farming.** Accept a daily cap of 10 rewarded To-dos? Also consider no reward for a To-do completed less than 1 min after creation.
@@ -382,4 +399,6 @@ QA reference for the 9.2b acceptance (passive income and chest discovery only: C
 7. **Player profile is a guess.** Session count and gap lengths drive chest count most. Replace it with device-test data.
 8. **Expected values only.** With rare Specials (1% full, 3.3% per card in the MVP), individual players differ by several days. Run a Monte Carlo pass before the user study.
 9. **Full-design card pool.** The MVP pool is 3 / 3 / 3 (D6). The full-design column still uses 5 / 3 / 1 with 79 / 20 / 1. Align it once the post-MVP pool size is known (see question 3).
-10. **Tutorial chest and the 3 slots.** This draft assumes the tutorial chest is separate from the 3 island chest slots, and normal search starts with 0 found chests when onboarding ends. Confirm with the island design (W3).
+10. **Tutorial chest and the 3 slots.** This draft assumes the tutorial chest is separate from the 3 island chest slots, and normal search starts with 0 found chests when onboarding ends. Confirm with the island design (W3). The build does this: onboarding places the tutorial chest in a free chest area, but it does not count as one of the 3 island chest slots, and normal search starts at 0 found chests when onboarding ends.
+11. **Re-tune for the build (TO DESIGN).** 54 cards (18 / 18 / 18), shop packs and cosmetics are in the build but not in the workbook. Re-model rarity weights, pity, chest weights, pack price and the collection pace target, and add the cosmetic sink. This also depends on the opening-engagement redesign (GDD Q4), which may change the coin scale.
+12. **Cosmetic prices.** The prices in 8.8 are placeholders. Derive them from a target (e.g. one cosmetic per 1-2 days of play) during the re-tune.
