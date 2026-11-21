@@ -18,6 +18,9 @@ namespace RayneoIdle.Save
         /// <summary>Demo Mode slot: demo never writes the real save (9.2b).</summary>
         public const int DemoSlot = 1;
 
+        /// <summary>Aim test scene (AimTest.unity): its own slot, never the real save.</summary>
+        public const int AimTestSlot = 2;
+
         public static string PathFor(int slot) => Path.Combine(Application.persistentDataPath, $"save_slot{slot}.json");
 
         public static bool Exists(int slot) => File.Exists(PathFor(slot)) || File.Exists(PathFor(slot) + ".bak");

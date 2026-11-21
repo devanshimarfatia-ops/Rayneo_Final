@@ -67,6 +67,23 @@ namespace RayneoIdle.UI
 
         public bool InView { get; private set; }
 
+        /// <summary>
+        /// Opt-in hook (aim test). False = the map never pushes itself on the InputAdapter stack, so chest focus /
+        /// open input is off. Default true (game behaviour unchanged).
+        /// </summary>
+        public bool ChestInputEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Opt-in hook (aim test). True = body-follow is paused: the map keeps its direction while the player aims
+        /// (it still moves with the head position). Default false.
+        /// </summary>
+        public bool FollowLocked { get; set; }
+
+        /// <summary>The map image (140 x 100 texels, pivot top-center). Test overlays are parented here.</summary>
+        public RectTransform MapRect => mapRt;
+        /// <summary>Canvas px per map texel.</summary>
+        public const float TexelPx = PxPerTexel;
+
         /// <summary>Onboarding tutorial search: area shown as searched (-1 = none). Set by OnboardingController.</summary>
         public int TutorialSearchArea { get; set; } = -1;
         /// <summary>Onboarding tutorial search progress 0..1 for the status bar (-1 = off, use the island search).</summary>
@@ -210,7 +227,9 @@ namespace RayneoIdle.UI
         {
             float headYaw = HeadYaw();
             float delta = Mathf.DeltaAngle(bodyYaw, headYaw);
-            bool outside = delta < -followLeftDeg || delta > mapYawDeg + followPastMapDeg;
+            // FollowLocked (aim test): never start or continue a follow while the player aims at the map.
+            bool outside = !FollowLocked && (delta < -followLeftDeg || delta > mapYawDeg + followPastMapDeg);
+            if (FollowLocked) following = false;
 
             if (outside) { if (outsideSince < 0) outsideSince = Time.unscaledTime; }
             else if (!following) outsideSince = -1f;
@@ -365,6 +384,12 @@ namespace RayneoIdle.UI
         {
             bool inView = Mathf.Abs(SignedAngleFromGaze()) < inViewAngleDeg;
             if (inView == InView) return;
+            if (!ChestInputEnabled)
+            {
+                // Aim test: track InView for the HUD, but never take input.
+                InView = inView;
+                return;
+            }
             InView = inView;
             var input = InputAdapter.Instance;
             if (input != null)

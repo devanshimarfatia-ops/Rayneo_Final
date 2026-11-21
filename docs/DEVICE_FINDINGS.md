@@ -78,6 +78,20 @@ May change with any firmware update.
   Project convention (forward = left / previous) is in `Assets/Scripts/Common/SwipeMap.cs`.
 - (2026-11-07) One swipe on the temple fires 2 step events, usually < 40 ms apart but sometimes > 120 ms;
   `InputAdapter.swipeRepeatGuardSeconds` = 0.18 s keeps it to one move.
+- (2026-11-21) A single tap (`OnSimpleTap`) arrives about 0.4-0.6 s after `OnTouchStart` (finger down): the SDK waits
+  `MulitTapSpacing` = 0.4 s (`Assets/XR/RayNeoGeneralSettings.asset`, SDK default) to rule out a double tap.
+  `OnTouchStart` itself has no delay. In 2 of 11 aim-test taps the head had already left the object when the tap
+  arrived, so aim-based selection should use the target at `OnTouchStart`.
+
+## Gaze pointer (XR Plugin LaserBeamDot)
+- (2026-11-21) The dot in the middle of the view is the SDK gaze pointer: `XR Plugin` prefab > LaserBeam >
+  `LaserBeamDot` (MeshRenderer) + `BeamGraphic` (LineRenderer). It follows head direction, not the eyes.
+- Hiding works on device: switch both renderers off in `Camera.onPreCull` every frame (`UI/GazeDotHider.cs`). Unticking
+  them once is not enough, the closed-source LaserBeam may switch them back on.
+- Every game canvas has an `XRGraphicRaycaster`, so the SDK ray hits our UI and a temple tap sends UI click events to
+  what the dot is on. The game has no Button / IPointerClickHandler, so nothing runs twice; keep it that way.
+- Head-aim selection with our own reticle on the map works and is usable (aim test, `Assets/Scenes/AimTest.unity`).
+  Near object edges the highlight flickers with small head movements (left an object within 0.1-0.5 s).
 
 ## Open questions (to test)
 - Does the SLAM origin reset per app session? (AnchorZone test 3) Note 2026-11-07: an anchor placed near the

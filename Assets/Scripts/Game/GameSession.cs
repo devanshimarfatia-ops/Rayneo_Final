@@ -35,6 +35,10 @@ namespace RayneoIdle.Game
         [Tooltip("Fixed random seed for reproducible tests. 0 = random.")]
         [SerializeField] private int randomSeed;
 
+        [Tooltip("Save slot loaded at start. Game = SaveSystem.MainSlot (0). Test scenes use their own slot so they " +
+                 "never touch the real save (aim test = SaveSystem.AimTestSlot).")]
+        [SerializeField] private int startSlot = SaveSystem.MainSlot;
+
         public IdleConfig Config => config;
         public IdleCore Core { get; private set; }
         public CardSystem Cards { get; private set; }
@@ -69,6 +73,7 @@ namespace RayneoIdle.Game
             }
             Instance = this;
 
+            Slot = startSlot;
             Data = SaveSystem.Load(Slot);
             IsFreshSave = Data == null;
             Data ??= new SaveData();
