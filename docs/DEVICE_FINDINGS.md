@@ -92,6 +92,9 @@ May change with any firmware update.
   what the dot is on. The game has no Button / IPointerClickHandler, so nothing runs twice; keep it that way.
 - Head-aim selection with our own reticle on the map works and is usable (aim test, `Assets/Scenes/AimTest.unity`).
   Near object edges the highlight flickers with small head movements (left an object within 0.1-0.5 s).
+- (2026-11-22) Same pointer in the game map (`UI/MapAimController`) works for chests and 48 small trash pieces at map
+  size M (2.4 m). The map at 2.9 m (about 69% of the view) felt small; 2.4 m was preferred, 2.0 m fills the view and
+  the head-locked toolbar overlaps the map bottom.
 
 ## Open questions (to test)
 - Does the SLAM origin reset per app session? (AnchorZone test 3) Note 2026-11-07: an anchor placed near the

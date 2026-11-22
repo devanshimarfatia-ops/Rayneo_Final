@@ -27,6 +27,46 @@ Entry template:
 
 ---
 
+## 2026-11-22 - Yaxin - Yaxin-Mu/Prototype-2 (next phase: trash + map pointer, onboarding rework)
+**Done**
+- New branch `Yaxin-Mu/Prototype-2` from `Yaxin-Mu/Prototype`. Design docs synced with the build (GDD v0.9, EN + ZH
+  Google Docs + local drafts, 2026-11-21): no task assignment in the GDD, clock beside the coins, open items Q1-Q18.
+- Aim test scene (`AimTest.unity`, commit 6dd9ab0): head-aim reticle + highlight + temple tap; SDK gaze dot hidden
+  (`UI/GazeDotHider`).
+- Game map pointer (`UI/MapAimController`, added to Game.unity): look at the map -> reticle, aim at a chest or trash ->
+  cyan frame + hint, tap -> chest opens / trash is ordered. Replaces swipe focus + tap on chests.
+- Trash prototype (`UI/TrashTestOverlay`): Settings "Fill map with trash (test)" puts the full 48 on the map. Tapped trash
+  turns green and queues; the explorer stops exploring, walks there (2x speed), clears it, "+N" coins float over his head.
+  Live chest search pauses while errands run (`IdleCore.SearchPaused`); `IdleConfig.trashCoinsPerUnit` = 5 (placeholder).
+- Map size presets S / M / L (2.9 / 2.4 / 2.0 m), default M; trash style 48 pieces (recommended) / 12 piles x 4. Both are
+  player preferences in Settings, saved per device (PlayerPrefs), not cleared by Reset.
+- Panels stay open: looking at the map suspends the open panel (hidden, input goes to the map) instead of closing it.
+- Onboarding: swipe step moves the toolbar focus (visible feedback); double tap is taught inside the anchor step (own step
+  removed, old saves map it to SetAnchor). Anchor slot: Name first (popup list of presets + voice), then Place; placed =
+  green check + "Anchor placed: <name>".
+- Tests: smoke 22/22, onboarding 25/25 (new swipe + naming checks). Three device test rounds today.
+
+**Decisions** (what + why)
+- Trash design (see `docs/design/Trash_System_Draft.md`): one trash per 30 min incl. offline, 48 = full = 24 h, which is
+  the offline cap made visible; full map stops exploring. Trash beats exploring for the explorer.
+- Chests stay the source of cards; early game only the tutorial chest, later chests shift from coins to cards.
+- Map size M and 48 single pieces chosen on device (S felt small; 48 pieces looked better than piles).
+- The GDD does not assign tasks (owners live in Trello).
+
+**Device findings** (also in DEVICE_FINDINGS.md)
+- Head-aim pointer works in the game map at size M; taps use the target at finger-down (0.4 s SDK tap delay).
+
+**Open issues / blockers**
+- Trash is visual/test only: no regrowth, no blocking, not saved; tutorial does not clear 3 trash yet.
+- Not built: manual explore -> auto explore upgrade, pets picking up trash, chest unlock + coin->card shift, eras.
+- Clock on the HUD (W8) still to add. Economy re-tune (54 cards, shop, trash coins) pending.
+- GDD (Google Docs) not yet updated with the trash design.
+
+**Next**
+- [ ] Real trash system: regrowth (30 min, offline), save, block exploring when full, tutorial "clear 3 trash".
+- [ ] Manual exploration + auto-explore upgrade; pet trash pickup.
+- [ ] HUD clock; GDD trash section (EN + ZH).
+
 ## 2026-11-07 - Yaxin - Yaxin-Mu/Prototype (prototype phase: full MVP loop, 4 device test rounds)
 **Done**
 - Core in plain C# (no SDK): `Idle/` IdleCore + `IGameClock` + IdleConfig (MVP economy values), `Cards/`,

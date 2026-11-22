@@ -9,6 +9,7 @@
 | `design/MVP_Scope_Draft(.zh).md` | MVP scope: demo path, in/out scope, decisions D#, work breakdown W# |
 | `design/Economy_Draft_Doc(.zh).md`, `Economy_Draft_Notes.md`, `Economy_Draft.xlsx` | Economy draft; the xlsx is the source for the numbers |
 | `design/GDD_Update_Blocks(.zh).md` | Old/New blocks applied to the GDD in each version bump |
+| `design/Trash_System_Draft.md` | Trash + gradual automation design draft (2026-11-22), not yet in the GDD |
 | `design/AR_Game_Design_Document_Template_1.docx`, `AR游戏设计文档模板.docx` | GDD templates (EN / ZH) |
 | `iteration-log/2026-11-07.en.html`, `.zh.html` | Prototype iteration log with screenshots (open in a browser) |
 | `iteration-log/screenshots/` | Screenshots per version: V1 parchment, V2 panels, V3 first APK, latest build |
