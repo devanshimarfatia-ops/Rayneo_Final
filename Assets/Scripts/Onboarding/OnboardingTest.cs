@@ -59,14 +59,24 @@ namespace RayneoIdle.Onboarding
             Shot("ob_1b_tap");
             yield return Send(GameAction.Confirm);
             Check("tap -> Swipe step", ob.Step == OnboardingStep.Swipe);
+            var hudRef = FindObjectOfType<MainHud>();
+            var toolBefore = hudRef.FocusedTool;
             yield return Send(GameAction.Next);
-            Check("swipe -> DoubleTap step", ob.Step == OnboardingStep.DoubleTap);
-            yield return Send(GameAction.Back);
-            Check("double tap -> SetAnchor: Anchors panel on slot 1", ob.Step == OnboardingStep.SetAnchor
+            Check("swipe moves the toolbar focus (feedback), still Swipe step", ob.Step == OnboardingStep.Swipe && hudRef.FocusedTool != toolBefore,
+                hudRef.FocusedTool.ToString());
+            float sw0 = Time.realtimeSinceStartup;
+            while (ob.Step == OnboardingStep.Swipe && Time.realtimeSinceStartup - sw0 < 5f) yield return null;
+            Check("after the feedback delay -> SetAnchor: Anchors panel on slot 1", ob.Step == OnboardingStep.SetAnchor
                 && host.Current is AnchorPanel ap && ap.InSlotView && host.AnyOpen);
             yield return Frames(2);
             Shot("ob_2_anchor");
 
+            // Name first: Name row -> name list -> confirm -> back on the slot view with focus on Place.
+            yield return Send(GameAction.Confirm);   // Name row -> name list
+            Check("tap Name opens the name list", host.Current is AnchorPanel ap2 && ap2.InNameView);
+            yield return Send(GameAction.Next);      // next preset
+            yield return Send(GameAction.Confirm);   // confirm name
+            Check("confirm name -> slot view, name confirmed", host.Current is AnchorPanel ap3 && !ap3.InNameView && ap3.InSlotView && ap3.NameConfirmed);
             // No anchor system in this test scene: Place reports "not available", closing the panel continues.
             yield return Send(GameAction.Confirm);   // Place anchor here
             yield return Send(GameAction.Back);      // slot -> boxes

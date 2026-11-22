@@ -50,7 +50,9 @@ namespace RayneoIdle.Onboarding
         /// <summary>Steps in the order the player meets them (for "TUTORIAL k/12").</summary>
         private static readonly OnboardingStep[] Flow =
         {
-            OnboardingStep.Tap, OnboardingStep.Swipe, OnboardingStep.DoubleTap, OnboardingStep.SetAnchor,
+            // DoubleTap is no longer its own step (Yaxin 2026-11-22: nothing to go back from yet); it is taught inside
+            // SetAnchor, where double tap really leaves the slot and closes the panel.
+            OnboardingStep.Tap, OnboardingStep.Swipe, OnboardingStep.SetAnchor,
             OnboardingStep.Todo, OnboardingStep.Toolbar, OnboardingStep.TurnToMap, OnboardingStep.TutorialSearch,
             OnboardingStep.OpenChest, OnboardingStep.OpenPack, OnboardingStep.OpenCollection, OnboardingStep.BrowseCollection,
         };
@@ -76,6 +78,10 @@ namespace RayneoIdle.Onboarding
         private RawImage hintFrame, pointer, cardFrame;
         private bool pushed, skipPrompt, todoCreated, sawAnchorPanel, cardShown, gateOpen;
         private float searchStart, cardHideAt;
+        /// <summary>Swipe step: time of the first swipe (-1 = none). The toolbar focus moves; the step ends after this delay.</summary>
+        private float swipeAt = -1f;
+        [Tooltip("Seconds the swipe feedback (toolbar focus moving) stays before the next step.")]
+        [SerializeField] private float swipeFeedbackSeconds = 1.2f;
         private int searchArea = -1;
 
         private void Start()
@@ -174,6 +180,7 @@ namespace RayneoIdle.Onboarding
 
             if (data.onboardingDone) { SetStep(OnboardingStep.Done, save: false); SetHintVisible(false); return; }
             var step = (OnboardingStep)Mathf.Clamp(data.onboardingStep, 0, (int)OnboardingStep.Done);
+            if (step == OnboardingStep.DoubleTap) step = OnboardingStep.SetAnchor; // old saves: step removed from the flow
             Debug.Log($"{LogTag} start at {step}");
             Go(step);
         }
@@ -190,6 +197,9 @@ namespace RayneoIdle.Onboarding
             {
                 case OnboardingStep.Welcome:
                     ShowCard(IntroText);
+                    break;
+                case OnboardingStep.Swipe:
+                    swipeAt = -1f;
                     break;
                 case OnboardingStep.SetAnchor:
                     // Device test 3: tapping used to place the anchor silently and jump to To-do. Now the Anchors
@@ -309,7 +319,12 @@ namespace RayneoIdle.Onboarding
                     else if (action == GameAction.Back) skipPrompt = true;
                     return true;
                 case OnboardingStep.Swipe:
-                    if (action == GameAction.Prev || action == GameAction.Next) Go(OnboardingStep.DoubleTap);
+                    // Trigger: a swipe moves the toolbar focus (visible feedback); swipeFeedbackSeconds later -> SetAnchor.
+                    if (action == GameAction.Prev || action == GameAction.Next)
+                    {
+                        hud.HandleAction(action);
+                        if (swipeAt < 0) swipeAt = Time.unscaledTime;
+                    }
                     else if (action == GameAction.Back) skipPrompt = true;
                     return true;
                 case OnboardingStep.DoubleTap:
@@ -346,6 +361,9 @@ namespace RayneoIdle.Onboarding
 
             switch (Step)
             {
+                case OnboardingStep.Swipe:
+                    if (swipeAt >= 0 && Time.unscaledTime - swipeAt >= swipeFeedbackSeconds) Go(OnboardingStep.SetAnchor);
+                    break;
                 case OnboardingStep.SetAnchor:
                     if (panelOpen && panels.Current is AnchorPanel) sawAnchorPanel = true;
                     // Trigger: the Anchors panel was used and closed with anchor 1 placed (or no anchor system: manual).
@@ -425,15 +443,21 @@ namespace RayneoIdle.Onboarding
             {
                 case OnboardingStep.Welcome: return "";
                 case OnboardingStep.Tap: return "Tap the touchpad once";
-                case OnboardingStep.Swipe: return "Swipe forward or back on the touchpad";
+                case OnboardingStep.Swipe: return swipeAt >= 0 ? "Swiping moves the selection" : "Swipe forward or back on the touchpad";
                 case OnboardingStep.DoubleTap: return "Double tap = back. Try it now";
                 case OnboardingStep.SetAnchor:
                 {
                     var anchors = panelOpen ? panels.Current as AnchorPanel : null;
                     bool placed = store == null || store.Get(ZoneType.Work) != null;
                     if (anchors == null) return placed ? "" : "Tap the diamond icon: Anchors";
-                    if (!placed) return anchors.InSlotView ? "Stand at your desk, tap: Place anchor here" : "Tap anchor 1";
-                    return "Swipe on Name to rename it. Double tap twice when done";
+                    // Order (Yaxin 2026-11-22): name -> confirm name -> place -> placed -> double tap back (twice).
+                    if (anchors.InNameView) return "Swipe to choose a name, tap to confirm";
+                    if (!placed)
+                    {
+                        if (!anchors.InSlotView) return "Tap anchor 1";
+                        return anchors.NameConfirmed ? "Stand at your desk, then tap: Place anchor here" : "First, name it: tap Name";
+                    }
+                    return anchors.InSlotView ? "Anchor placed! Double tap = back. Try it" : "Double tap once more to close";
                 }
                 case OnboardingStep.Todo:
                     if (!panelOpen) return hud.FocusedTool == MainHud.ToolId.Todo ? "Tap to open To-do" : "Swipe to the pen icon, then tap";
@@ -441,7 +465,7 @@ namespace RayneoIdle.Onboarding
                 case OnboardingStep.Toolbar: return panelOpen ? "Double tap to close" : "These are your tools. Swipe to look";
                 case OnboardingStep.TurnToMap: return ""; // the HUD arrow says it (Yaxin: arrow, not text)
                 case OnboardingStep.TutorialSearch: return mapInView ? "Your explorer is hunting for treasure..." : "";
-                case OnboardingStep.OpenChest: return mapInView ? "Chest found! Tap to open it" : "";
+                case OnboardingStep.OpenChest: return mapInView ? "Chest found! Aim at it and tap" : "";
                 case OnboardingStep.OpenCollection:
                     if (RewardsOpen) return "Tap to continue";
                     if (mapInView) return "Now look ahead again";
