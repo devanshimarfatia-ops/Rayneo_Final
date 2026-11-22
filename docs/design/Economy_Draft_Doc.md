@@ -388,6 +388,10 @@ Set in code on November 7, 2026, not derived from the targets in 1.2. Read in "h
 
 Cosmetics have no stat effect. Buying them delays Coin Rate levels, which the MVP pacing in 8.4 does not model.
 
+### 8.9 Trash coins (prototype placeholder)
+
+The trash prototype (2026-11-22) pays `trashCoinsPerUnit` = 5 coins per trash cleared. Design: one trash every 30 min, 48 = 24 h (the offline cap). A full day of trash pays 48 x 5 = 240 coins, about 2.4 h of base passive income (100 coins/h). Not in the workbook yet; part of the re-tune (open question 11).
+
 ## 9. Open Questions
 
 1. **To-do farming.** Accept a daily cap of 10 rewarded To-dos? Also consider no reward for a To-do completed less than 1 min after creation.
