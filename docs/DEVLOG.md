@@ -45,13 +45,22 @@ Entry template:
   removed, old saves map it to SetAnchor). Anchor slot: Name first (popup list of presets + voice), then Place; placed =
   green check + "Anchor placed: <name>".
 - Tests: smoke 22/22, onboarding 25/25 (new swipe + naming checks). Three device test rounds today.
+- GDD v1.0 (EN + ZH Google Docs): trash and gradual automation in Section 4, clear-trash onboarding step, map size and
+  map pointer, offline trash, open items Q19-Q21; new tab "Phase 2 Scope"; MVP Scope tab marked complete; economy tab
+  renamed "Economy Design".
+- Repo docs restructured: `docs/design/` mirrors the GDD tabs in English (`GDD.md`, `MVP_Scope.md`, `Phase2_Scope.md`,
+  `Economy_Design.md`, `Economy.xlsx`); Chinese copies, update blocks, research notes and templates removed from git
+  (kept in the working folder). Economy workbook renamed `Economy_Draft.xlsx` -> `Economy.xlsx` (Drive Sheet too).
 
 **Decisions** (what + why)
-- Trash design (GDD Section 4 "Trash and gradual automation"; local draft `Trash_System_Draft.md` in the working folder): one trash per 30 min incl. offline, 48 = full = 24 h, which is
+- Trash design (GDD Section 4 "Trash and gradual automation", `docs/design/GDD.md`): one trash per 30 min incl. offline, 48 = full = 24 h, which is
   the offline cap made visible; full map stops exploring. Trash beats exploring for the explorer.
 - Chests stay the source of cards; early game only the tutorial chest, later chests shift from coins to cards.
 - Map size M and 48 single pieces chosen on device (S felt small; 48 pieces looked better than piles).
 - The GDD does not assign tasks (owners live in Trello).
+- MVP is complete; new work is Phase 2 with its own scope doc/tab (merged into the GDD later), not MVP rows.
+- Repo keeps only English docs that mirror the GDD; `.zh` stays local. The economy doc is one living design, so no
+  "draft" naming (doc, tab, workbook).
 
 **Device findings** (also in DEVICE_FINDINGS.md)
 - Head-aim pointer works in the game map at size M; taps use the target at finger-down (0.4 s SDK tap delay).
@@ -60,12 +69,14 @@ Entry template:
 - Trash is visual/test only: no regrowth, no blocking, not saved; tutorial does not clear 3 trash yet.
 - Not built: manual explore -> auto explore upgrade, pets picking up trash, chest unlock + coin->card shift, eras.
 - Clock on the HUD (W8) still to add. Economy re-tune (54 cards, shop, trash coins) pending.
-- GDD (Google Docs) not yet updated with the trash design.
 
 **Next**
 - [ ] Real trash system: regrowth (30 min, offline), save, block exploring when full, tutorial "clear 3 trash".
 - [ ] Manual exploration + auto-explore upgrade; pet trash pickup.
-- [ ] HUD clock; GDD trash section (EN + ZH).
+- [ ] HUD clock.
+- [x] GDD trash section (EN + ZH), Phase 2 Scope tab, docs/design mirror.
+- [ ] Economy re-tune in `Economy.xlsx` (54 cards, shop, cosmetics, trash, manual vs auto exploration), then re-import
+  into the Sheet and refresh `Economy_Design.md` + the GDD tab.
 
 ## 2026-11-07 - Yaxin - Yaxin-Mu/Prototype (prototype phase: full MVP loop, 4 device test rounds)
 **Done**
