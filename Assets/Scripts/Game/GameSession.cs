@@ -26,7 +26,7 @@ namespace RayneoIdle.Game
 
         public static GameSession Instance { get; private set; }
 
-        [Tooltip("Economy numbers. Defaults = MVP column of Economy_Draft.xlsx.")]
+        [Tooltip("Economy numbers. Defaults = MVP column of Economy.xlsx.")]
         [SerializeField] private IdleConfig config = new IdleConfig();
 
         [Tooltip("Seconds between autosaves (W2: 30 s).")]

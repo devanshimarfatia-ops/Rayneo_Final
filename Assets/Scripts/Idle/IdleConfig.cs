@@ -4,7 +4,7 @@ namespace RayneoIdle.Idle
 {
     /// <summary>
     /// Economy numbers for the idle loop. Defaults = MVP column of the economy workbook
-    /// (Economy_Draft.xlsx, sheet Params, "MVP value"). Change numbers there first, then copy here.
+    /// (Economy.xlsx, sheet Params, "MVP value"). Change numbers there first, then copy here.
     /// Plain serializable class so it can be edited on a MonoBehaviour / ScriptableObject in the Inspector.
     /// </summary>
     [Serializable]
