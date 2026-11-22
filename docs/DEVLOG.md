@@ -47,7 +47,7 @@ Entry template:
 - Tests: smoke 22/22, onboarding 25/25 (new swipe + naming checks). Three device test rounds today.
 
 **Decisions** (what + why)
-- Trash design (see `docs/design/Trash_System_Draft.md`): one trash per 30 min incl. offline, 48 = full = 24 h, which is
+- Trash design (GDD Section 4 "Trash and gradual automation"; local draft `Trash_System_Draft.md` in the working folder): one trash per 30 min incl. offline, 48 = full = 24 h, which is
   the offline cap made visible; full map stops exploring. Trash beats exploring for the explorer.
 - Chests stay the source of cards; early game only the tutorial chest, later chests shift from coins to cards.
 - Map size M and 48 single pieces chosen on device (S felt small; 48 pieces looked better than piles).
