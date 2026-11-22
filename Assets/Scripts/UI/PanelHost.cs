@@ -9,7 +9,7 @@ namespace RayneoIdle.UI
     /// Opens the toolbar panels (To-do, Collection, Settings) inside the HUD canvas.
     /// Triggers: MainHud.OnToolOpened(tool) opens the matching panel (one at a time).
     /// While a panel is open the toolbar is hidden and a bottom hint shows its controls.
-    /// The panel closes by itself when the map comes into view (the user turned the head away).
+    /// While the map is in view an open panel is suspended (hidden, input passes to the map) and comes back as it was.
     /// </summary>
     [DefaultExecutionOrder(50)] // after MainHud built its canvas
     public class PanelHost : MonoBehaviour
@@ -25,6 +25,9 @@ namespace RayneoIdle.UI
         public string HintOverride { get; set; }
 
         public bool AnyOpen => Current != null && Current.IsOpen;
+
+        /// <summary>A panel is open AND visible (not suspended while the user looks at the map).</summary>
+        public bool AnyShown => AnyOpen && !Current.Suspended;
 
         /// <summary>Chest reward window (modal, opened by any chest).</summary>
         public RewardWindow Rewards { get; private set; }
@@ -90,12 +93,20 @@ namespace RayneoIdle.UI
         private void Update()
         {
             bool open = Current != null && Current.IsOpen;
-            // Panels close when the user turns to the map; the reward window is opened FROM the map, so it stays.
-            if (open && map != null && map.InView && Current != Rewards && Current != StartScreen) { Current.Close(); open = false; }
-            if (open) Current.Tick();
-            hud.SetPanelMode(open);
+            // Trigger: the map comes into view (map.InView, within 20 deg) while a tool panel is open -> the panel is
+            // SUSPENDED (hidden, input passes to the map), not closed; looking back shows it again as it was.
+            // Only Back (double tap) or the panel's own actions close it (Yaxin 2026-11-22: no reopening after a look
+            // at the map). The reward window and Start screen are never suspended.
+            if (open)
+            {
+                bool suspend = map != null && map.InView && Current != Rewards && Current != StartScreen;
+                Current.SetSuspended(suspend);
+            }
+            bool shown = open && !Current.Suspended;
+            if (shown) Current.Tick();
+            hud.SetPanelMode(shown);
             // Onboarding shows its own hint card in this line while a panel is open.
-            hintText.text = open && string.IsNullOrEmpty(HintOverride) ? Current.Hint : "";
+            hintText.text = shown && string.IsNullOrEmpty(HintOverride) ? Current.Hint : "";
         }
     }
 }

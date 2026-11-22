@@ -242,7 +242,7 @@ namespace RayneoIdle.AimTest
             EditorTurn();
             float now = Time.unscaledTime;
             float angle = AngleToMapCenter();
-            bool blocked = panels.AnyOpen || trackingLost;
+            bool blocked = panels.AnyShown || trackingLost;
 
             if (!aimMode)
             {
@@ -254,7 +254,7 @@ namespace RayneoIdle.AimTest
                 }
                 else enterSince = -1f;
             }
-            else if (blocked) ExitAim(panels.AnyOpen ? "panel open" : "tracking lost");
+            else if (blocked) ExitAim(panels.AnyShown ? "panel open" : "tracking lost");
             else if (angle > exitAngleDeg) ExitAim($"angle {angle:F1}");
 
             if (aimMode) UpdateAim();

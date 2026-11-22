@@ -127,6 +127,7 @@ namespace RayneoIdle.EditorTools
             game.AddComponent<MainHud>();
             game.AddComponent<PanelHost>();
             game.AddComponent<OnboardingController>();
+            game.AddComponent<MapAimController>(); // head-aim pointer on the map (also adds GazeDotHider)
             game.AddComponent<EditorHeadLook>();
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));

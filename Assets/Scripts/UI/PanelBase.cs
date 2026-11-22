@@ -52,12 +52,29 @@ namespace RayneoIdle.UI
         {
             if (!IsOpen) return;
             IsOpen = false;
+            Suspended = false;
             root.gameObject.SetActive(false);
             InputAdapter.Instance?.Pop(this);
         }
 
+        /// <summary>
+        /// Open but hidden while the user looks at the map (PanelHost). A suspended panel keeps its state and its
+        /// place on the input stack, but lets every action pass down (the map pointer gets the taps).
+        /// </summary>
+        public bool Suspended { get; private set; }
+
+        public void SetSuspended(bool suspended)
+        {
+            if (!IsOpen) suspended = false;
+            if (suspended == Suspended) return;
+            Suspended = suspended;
+            root.gameObject.SetActive(IsOpen && !suspended);
+            if (!suspended && IsOpen) Refresh();
+        }
+
         public bool HandleAction(GameAction action)
         {
+            if (Suspended) return false;
             if (action == GameAction.Back)
             {
                 if (!OnBack()) Close();

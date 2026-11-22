@@ -3,7 +3,7 @@ using System;
 namespace RayneoIdle.Idle
 {
     /// <summary>Why coins were added. HUD / logs can show different feedback per source.</summary>
-    public enum CoinSource { Passive, Settle, Todo, Chest, Duplicate, Tutorial, Debug }
+    public enum CoinSource { Passive, Settle, Todo, Chest, Duplicate, Tutorial, Debug, Trash }
 
     /// <summary>Why a settle ran (D4).</summary>
     public enum SettleReason
@@ -56,6 +56,13 @@ namespace RayneoIdle.Idle
         public bool CanBuyCoinRate => !CoinRateMaxed && State.coins >= NextCoinRateCost;
 
         public bool ChestSlotsFull => State.chestsWaiting >= Config.chestSlots;
+
+        /// <summary>
+        /// Trigger: true while the explorer runs an errand (clearing trash the player tapped). Live chest search
+        /// stops meanwhile (trash has priority over exploring); passive coins and offline / pause settles are not
+        /// affected. Not saved.
+        /// </summary>
+        public bool SearchPaused { get; set; }
 
         /// <summary>0..1 progress of the next chest. 0 while all slots are full or search is off.</summary>
         public double ChestProgress01 =>
@@ -111,7 +118,7 @@ namespace RayneoIdle.Idle
             if (realSeconds <= 0) return;
 
             double gameHours = realSeconds * DemoMultiplier / 3600.0;
-            AdvanceGameHours(gameHours, CoinSource.Passive, out _, out _);
+            AdvanceGameHours(gameHours, CoinSource.Passive, out _, out _, searchToo: !SearchPaused);
         }
 
         /// <summary>
@@ -147,12 +154,12 @@ namespace RayneoIdle.Idle
         }
 
         /// <summary>Pays passive coins and advances chest search for the given game hours.</summary>
-        private void AdvanceGameHours(double gameHours, CoinSource source, out double coins, out int chestsFound)
+        private void AdvanceGameHours(double gameHours, CoinSource source, out double coins, out int chestsFound, bool searchToo = true)
         {
             coins = CoinsPerHour * gameHours;
             State.coins += coins;
             State.totalCoinsEarned += coins;
-            chestsFound = AdvanceChestSearch(gameHours);
+            chestsFound = searchToo ? AdvanceChestSearch(gameHours) : 0;
         }
 
         // =====================================================================
@@ -225,6 +232,14 @@ namespace RayneoIdle.Idle
             State.totalTodosRewarded++;
             AddCoins(Config.todoReward, CoinSource.Todo);
             return Config.todoReward;
+        }
+
+        /// <summary>Trigger: the explorer finished clearing trash. Pays Config.trashCoinsPerUnit per trash unit.</summary>
+        public double RewardTrash(int units)
+        {
+            double coins = Config.trashCoinsPerUnit * System.Math.Max(0, units);
+            AddCoins(coins, CoinSource.Trash);
+            return coins;
         }
 
         public bool TryBuyCoinRate()

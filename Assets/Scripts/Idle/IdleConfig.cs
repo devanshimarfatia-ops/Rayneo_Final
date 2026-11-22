@@ -32,6 +32,13 @@ namespace RayneoIdle.Idle
         /// <summary>Coins for finishing one To-do.</summary>
         public double todoReward = 320;
 
+        // ---------- Trash (prototype, Yaxin 2026-11-22) ----------
+        /// <summary>
+        /// Coins per trash unit cleared (a 4-layer pile pays 4x). Placeholder until the economy sheet has trash:
+        /// 48 trash a day (one per 30 min) x 5 = 240 coins, about 2.4 h of base passive income.
+        /// </summary>
+        public double trashCoinsPerUnit = 5;
+
         // ---------- Chests (island search) ----------
         /// <summary>Max chests waiting on the island (one per chest area). Search stops when all are full.</summary>
         public int chestSlots = 3;

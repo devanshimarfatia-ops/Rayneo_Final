@@ -84,6 +84,60 @@ namespace RayneoIdle.UI
         /// <summary>Canvas px per map texel.</summary>
         public const float TexelPx = PxPerTexel;
 
+        // ---- Map size presets (device test, Settings > Map size) ----
+        /// <summary>
+        /// Map distance per size preset, meters. Apparent size = 2 m / distance of the 640x480 view:
+        /// S 2.9 m = ~69% (default, room for HUD rows), M 2.4 m = ~83%, L 2.0 m = ~100% (fills the view; the
+        /// head-locked toolbar then overlaps the map bottom). The height offset scales with the distance so the
+        /// map stays ~8 deg below eye level.
+        /// </summary>
+        public static readonly float[] SizePresetDistances = { 2.9f, 2.4f, 2.0f };
+        public static readonly string[] SizePresetNames = { "S", "M", "L" };
+        /// <summary>Default and "(recommended)" preset: M (device test 2026-11-22, Yaxin: S felt small).</summary>
+        public const int RecommendedSizePreset = 1;
+        /// <summary>Display preference, kept per device (PlayerPrefs), so Settings > Reset does not change it.</summary>
+        private const string SizePrefKey = "map.sizePreset";
+        public int SizePreset { get; private set; } = RecommendedSizePreset;
+        private float baseDistanceM, baseHeightOffsetM;
+
+        /// <summary>Switch the map size preset (player choice in Settings). Snaps the map to its new place and saves it.</summary>
+        public void SetSizePreset(int preset)
+        {
+            SizePreset = Mathf.Clamp(preset, 0, SizePresetDistances.Length - 1);
+            distanceM = SizePresetDistances[SizePreset];
+            PlayerPrefs.SetInt(SizePrefKey, SizePreset);
+            PlayerPrefs.Save();
+            if (canvasRt != null) UpdatePlacement(snap: true);
+            Debug.Log($"{LogTag} size preset {SizePresetNames[SizePreset]}: {distanceM:0.0} m");
+        }
+
+        /// <summary>Chest image box in map texels for an area that holds a chest (bottom-center at the spot).</summary>
+        public Rect ChestRectTexels(int area)
+        {
+            var spots = session.Island.State.spots;
+            if (area < 0 || area >= spots.Count) return Rect.zero;
+            var p = SpotTexel(spots[area]);
+            var tex = spots[area].isTutorial ? tutorialTex : chestTex;
+            float w = tex != null ? tex.width : 11, h = tex != null ? tex.height : 8;
+            return new Rect(Mathf.Round(p.x) - w / 2f, Mathf.Round(p.y), w, h);
+        }
+
+        /// <summary>True if a map texel is on land, at most `inset` (0..1) of the way from the island center to the coast.</summary>
+        public static bool IsOnLand(Vector2 texel, float inset)
+        {
+            float nx = (texel.x - IslandCenter.x) / IslandRadius.x, ny = (texel.y - IslandCenter.y) / IslandRadius.y;
+            return Mathf.Sqrt(nx * nx + ny * ny) < CoastRadius(Mathf.Atan2(ny, nx)) * inset;
+        }
+
+        /// <summary>Chest area rectangles in map texels (test overlays keep clear of them).</summary>
+        public List<Rect> AreaRectsTexels()
+        {
+            var list = new List<Rect>();
+            if (session == null) return list;
+            foreach (var a in session.Island.Areas) list.Add(AreaTexelRect(a));
+            return list;
+        }
+
         /// <summary>Onboarding tutorial search: area shown as searched (-1 = none). Set by OnboardingController.</summary>
         public int TutorialSearchArea { get; set; } = -1;
         /// <summary>Onboarding tutorial search progress 0..1 for the status bar (-1 = off, use the island search).</summary>
@@ -131,7 +185,11 @@ namespace RayneoIdle.UI
                 enabled = false;
                 return;
             }
+            baseDistanceM = distanceM;
+            baseHeightOffsetM = heightOffsetM;
+            SizePresetDistances[0] = baseDistanceM; // preset S = the Inspector distance
             Build();
+            SetSizePreset(PlayerPrefs.GetInt(SizePrefKey, RecommendedSizePreset));
             Recenter();
 
             var island = session.Island;
@@ -242,7 +300,9 @@ namespace RayneoIdle.UI
             }
 
             var dir = Quaternion.Euler(0, bodyYaw + mapYawDeg, 0) * Vector3.forward;
-            var target = head.position + dir * distanceM + Vector3.up * heightOffsetM;
+            // Height offset scales with the distance (size presets) so the angle below eye level stays the same.
+            float heightM = baseDistanceM > 0 ? baseHeightOffsetM * distanceM / baseDistanceM : heightOffsetM;
+            var target = head.position + dir * distanceM + Vector3.up * heightM;
             canvasRt.position = snap ? target
                 : Vector3.Lerp(canvasRt.position, target, 1f - Mathf.Exp(-positionSmoothing * Time.unscaledDeltaTime));
             canvasRt.rotation = Quaternion.LookRotation(dir, Vector3.up); // camera looks along +Z of the canvas
@@ -426,6 +486,29 @@ namespace RayneoIdle.UI
             }
         }
 
+        // ---- Errands (trash has priority over exploring, Yaxin 2026-11-22) ----
+        [Header("Errands")]
+        [Tooltip("Walk speed multiplier while the explorer runs to trash the player tapped.")]
+        [SerializeField] private float errandSpeedMultiplier = 2f;
+        private Vector2? errandTarget;
+        private System.Action errandDone;
+
+        /// <summary>True while the explorer walks to an errand target (search wandering is suspended).</summary>
+        public bool HasErrand => errandTarget.HasValue;
+        /// <summary>Explorer feet position, map texels (bottom-center of the sprite).</summary>
+        public Vector2 ExplorerTexel => explorerPos;
+
+        /// <summary>
+        /// Send the explorer to a map texel now (interrupts the search walk). Trigger for onArrive: the explorer is
+        /// within 0.5 texel of the target. A new errand replaces the old one (its callback is dropped).
+        /// </summary>
+        public void SendExplorer(Vector2 texel, System.Action onArrive)
+        {
+            errandTarget = texel;
+            errandDone = onArrive;
+            explorerPauseUntil = 0f;
+        }
+
         private void UpdateExplorer()
         {
             var st = session.Island.State;
@@ -433,7 +516,20 @@ namespace RayneoIdle.UI
             int area = ShownSearchArea;
             bool searching = area >= 0;
 
-            if (Time.unscaledTime >= explorerPauseUntil && Vector2.Distance(explorerPos, explorerTarget) < 0.5f)
+            if (errandTarget.HasValue)
+            {
+                explorerTarget = errandTarget.Value;
+                speed *= errandSpeedMultiplier;
+                if (Vector2.Distance(explorerPos, explorerTarget) < 0.5f)
+                {
+                    var done = errandDone;
+                    errandTarget = null;
+                    errandDone = null;
+                    explorerPauseUntil = Time.unscaledTime + 0.4f; // short stop while "picking up"
+                    done?.Invoke();
+                }
+            }
+            else if (Time.unscaledTime >= explorerPauseUntil && Vector2.Distance(explorerPos, explorerTarget) < 0.5f)
             {
                 if (searching)
                 {
